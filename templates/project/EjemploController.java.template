@@ -1,0 +1,44 @@
+package {{PACKAGE}}.controller;
+
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
+/**
+ * Controller de ejemplo: demuestra el patrón JdbcTemplate/JdbcClient + OpenAPI de este
+ * template. Borrar (junto con V1__init_schema.sql y su tabla `ejemplo`) al arrancar el
+ * proyecto real; sirve para que `mvn test -Dtest=OpenApiExportTest` tenga algo que exportar
+ * desde el primer commit.
+ */
+@RestController
+@RequestMapping("/ejemplos")
+@Tag(name = "Ejemplos", description = "Endpoint de referencia del template — borrar en el proyecto real.")
+public class EjemploController {
+
+    private final JdbcClient jdbcClient;
+
+    public EjemploController(JdbcClient jdbcClient) {
+        this.jdbcClient = jdbcClient;
+    }
+
+    public record EjemploResponse(UUID id, String nombre, String estado) {}
+
+    @GetMapping
+    @Operation(summary = "Lista los ejemplos activos", description = "Consulta directa vía JdbcClient sobre la tabla `ejemplo` creada en V1__init_schema.sql.")
+    public ResponseEntity<List<EjemploResponse>> listar() {
+        List<EjemploResponse> resultado = jdbcClient
+                .sql("SELECT id, nombre, estado FROM ejemplo WHERE estado = 'ACTIVO' ORDER BY nombre")
+                .query((rs, i) -> new EjemploResponse(
+                        UUID.fromString(rs.getString("id")), rs.getString("nombre"), rs.getString("estado")))
+                .list();
+        return ResponseEntity.ok(resultado);
+    }
+}

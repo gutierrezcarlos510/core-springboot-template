@@ -1,0 +1,42 @@
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: {{service}}
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:{{service}}_db}?reWriteBatchedInserts=true}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: 2
+      connection-timeout: 20000
+      pool-name: {{SERVICIO}}HikariCP
+      connection-init-sql: "SET TIME ZONE 'UTC';"
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    time-zone: UTC
+
+app:
+  cors:
+    allowed-origin-patterns: ${APP_CORS_ALLOWED_ORIGIN_PATTERNS:*}
+  jwt:
+    public-key-path: ${JWT_PUBLIC_KEY_PATH:classpath:certs/public_key.pem}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+logging:
+  level:
+    root: INFO
+    {{PACKAGE}}: DEBUG
+
+# OpenAPI: nunca expuesto en runtime. La especificación se genera con
+# `mvn test -Dtest=OpenApiExportTest` y se versiona en docs/openapi/.
+springdoc:
+  api-docs:
+    enabled: false

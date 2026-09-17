@@ -1,0 +1,25 @@
+-- Esquema inicial de {{SERVICIO}}. Reemplazar por las tablas reales del dominio.
+--
+-- Reglas (ver docs/database/README.md en core-backend, mismo criterio acá):
+-- 1. Nunca editar una migración ya aplicada en un entorno compartido; corregir con una nueva.
+-- 2. COMMENT ON TABLE / COMMENT ON COLUMN en toda tabla o columna nueva: alimenta
+--    docs/database/{{service}}-schema.md generado.
+-- 3. Operaciones de riesgo (DROP, RENAME, cambio de tipo) en dos pasos: expand primero,
+--    contract después de que los consumidores migraron.
+-- 4. Si esta tabla la consulta otro backend con SQL directo, avisarle y declarar la vista
+--    de contrato correspondiente (ver db-contract.json de ese consumidor).
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE ejemplo (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre      VARCHAR(150) NOT NULL,
+    estado      VARCHAR(20) DEFAULT 'ACTIVO' NOT NULL,
+    creado_en   TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+COMMENT ON TABLE ejemplo IS 'Tabla de ejemplo del template. Borrar junto con EjemploController al arrancar el proyecto real.';
+COMMENT ON COLUMN ejemplo.id IS 'Identificador único (UUID).';
+COMMENT ON COLUMN ejemplo.nombre IS 'Nombre descriptivo.';
+COMMENT ON COLUMN ejemplo.estado IS 'ACTIVO/INACTIVO — eliminación lógica.';
+COMMENT ON COLUMN ejemplo.creado_en IS 'Fecha de creación del registro.';

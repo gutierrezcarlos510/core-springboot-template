@@ -1,0 +1,94 @@
+package {{PACKAGE}}.schema;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
+/**
+ * Verifica que las vistas de contrato público que este repo lee de core-backend
+ * (declaradas en {@code db-contract.json}) sigan existiendo con las columnas
+ * declaradas. Se conecta a una base real donde core ya aplicó sus migraciones
+ * (dev/staging), no a un esquema efímero: el contrato es contra el estado real
+ * de core, no contra las migraciones de este repo.
+ *
+ * Si esto falla, alguien quitó o renombró una columna en una vista core_v_* sin
+ * avisar a este repo. Ver docs/database/README.md (regla de vistas) en core-backend.
+ */
+class DbContractTest {
+
+    private static final Path CONTRATO = Path.of("db-contract.json");
+
+    private static String jdbcUrl() {
+        String directo = System.getenv("DATABASE_URL");
+        if (directo != null && !directo.isBlank()) {
+            return directo;
+        }
+        String host = System.getenv().getOrDefault("DB_HOST", "127.0.0.1");
+        String port = System.getenv().getOrDefault("DB_PORT", "5432");
+        String db = System.getenv().getOrDefault("DB_NAME", "postgres");
+        return "jdbc:postgresql://" + host + ":" + port + "/" + db;
+    }
+
+    @Test
+    void vistasDeContratoExistenConSusColumnas() throws Exception {
+        JsonNode contrato = JsonMapper.builder().build().readTree(Files.readString(CONTRATO));
+        JsonNode vistas = contrato.get("vistas");
+
+        String url = jdbcUrl();
+        String user = System.getenv().getOrDefault("DB_USER", "postgres");
+        String pass = System.getenv().getOrDefault("DB_PASSWORD", "postgres");
+
+        List<String> incumplidas = new ArrayList<>();
+        try (Connection conexion = DriverManager.getConnection(url, user, pass)) {
+            var campos = vistas.properties();
+            for (Map.Entry<String, JsonNode> entry : campos) {
+                String vista = entry.getKey();
+                List<String> columnasEsperadas = new ArrayList<>();
+                entry.getValue().get("columnas").forEach(c -> columnasEsperadas.add(c.asString()));
+
+                List<String> columnasReales = columnasReales(conexion, vista);
+                if (columnasReales.isEmpty()) {
+                    incumplidas.add(vista + ": la vista no existe en public");
+                    continue;
+                }
+                for (String esperada : columnasEsperadas) {
+                    if (!columnasReales.contains(esperada)) {
+                        incumplidas.add(vista + "." + esperada + ": columna ausente (columnas reales: " + columnasReales + ")");
+                    }
+                }
+            }
+        }
+
+        if (!incumplidas.isEmpty()) {
+            throw new AssertionError(
+                    "db-contract.json roto contra la base real. core-backend cambió una vista sin avisar:\n  "
+                            + String.join("\n  ", incumplidas));
+        }
+    }
+
+    private List<String> columnasReales(Connection conexion, String vista) throws Exception {
+        List<String> columnas = new ArrayList<>();
+        try (PreparedStatement ps = conexion.prepareStatement(
+                "SELECT column_name FROM information_schema.columns "
+                        + "WHERE table_schema = 'public' AND table_name = ? ORDER BY ordinal_position")) {
+            ps.setString(1, vista);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    columnas.add(rs.getString(1));
+                }
+            }
+        }
+        return columnas;
+    }
+}

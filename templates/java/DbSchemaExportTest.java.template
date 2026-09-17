@@ -1,0 +1,209 @@
+package {{PACKAGE}}.schema;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Genera docs/database/{{service}}-schema.md aplicando las migraciones Flyway reales
+ * (src/main/resources/db/migration) contra un esquema descartable, para que la
+ * documentación del esquema nunca se escriba a mano.
+ *
+ *   mvn test -Dtest=DbSchemaExportTest                     # regenera el archivo
+ *   mvn test -Dtest=DbSchemaExportTest -Dschema.check=true # CI: falla si está desactualizado
+ *
+ * Necesita una base Postgres accesible (DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME,
+ * o DATABASE_URL). No toca datos reales: crea y usa el esquema "schema_export_doc"
+ * exclusivamente, y lo borra antes de migrar de nuevo.
+ *
+ * Nota: el repo infosystem-dev-tools estandariza esto como scripts/export-db-schema.mjs
+ * (Node, sin depender de Flyway API ni de arrancar Spring). Usar esta versión Java solo
+ * si este backend ya tiene Flyway como dependencia y preferís no agregar el script Node.
+ */
+class DbSchemaExportTest {
+
+    private static final Path SALIDA = Path.of("docs/database/{{service}}-schema.md");
+    private static final String ESQUEMA = "schema_export_doc";
+
+    private static String jdbcUrl() {
+        String directo = System.getenv("DATABASE_URL");
+        if (directo != null && !directo.isBlank()) {
+            return directo;
+        }
+        String host = System.getenv().getOrDefault("DB_HOST", "127.0.0.1");
+        String port = System.getenv().getOrDefault("DB_PORT", "5432");
+        String db = System.getenv().getOrDefault("DB_NAME", "postgres");
+        return "jdbc:postgresql://" + host + ":" + port + "/" + db;
+    }
+
+    private static String usuario() {
+        return System.getenv().getOrDefault("DB_USER", "postgres");
+    }
+
+    private static String password() {
+        return System.getenv().getOrDefault("DB_PASSWORD", "postgres");
+    }
+
+    @Test
+    void exportarEsquema() throws Exception {
+        String url = jdbcUrl();
+        String user = usuario();
+        String pass = password();
+
+        try (Connection conexion = DriverManager.getConnection(url, user, pass);
+                Statement st = conexion.createStatement()) {
+            st.execute("DROP SCHEMA IF EXISTS " + ESQUEMA + " CASCADE");
+            st.execute("CREATE SCHEMA " + ESQUEMA);
+        }
+
+        Flyway.configure(getClass().getClassLoader())
+                .dataSource(url, user, pass)
+                .schemas(ESQUEMA)
+                .defaultSchema(ESQUEMA)
+                .locations("classpath:db/migration")
+                .load()
+                .migrate();
+
+        String markdown = generarMarkdown(url, user, pass);
+
+        try (Connection conexion = DriverManager.getConnection(url, user, pass);
+                Statement st = conexion.createStatement()) {
+            st.execute("DROP SCHEMA IF EXISTS " + ESQUEMA + " CASCADE");
+        }
+
+        if (Boolean.getBoolean("schema.check")) {
+            String actual = Files.exists(SALIDA) ? Files.readString(SALIDA) : "";
+            if (!actual.equals(markdown)) {
+                throw new AssertionError(SALIDA + " está desactualizado. Ejecutá: mvn test -Dtest=DbSchemaExportTest");
+            }
+            return;
+        }
+        Files.createDirectories(SALIDA.getParent());
+        Files.writeString(SALIDA, markdown);
+    }
+
+    private String generarMarkdown(String url, String user, String pass) throws Exception {
+        StringBuilder md = new StringBuilder();
+        md.append("<!-- GENERADO por DbSchemaExportTest. No editar a mano: mvn test -Dtest=DbSchemaExportTest -->\n\n");
+        md.append("# Esquema de base de datos — {{SERVICIO}}\n\n");
+        md.append("Reconstruido aplicando `src/main/resources/db/migration/*.sql` en orden.\n\n");
+
+        try (Connection conexion = DriverManager.getConnection(url, user, pass)) {
+            List<String> tablas = new ArrayList<>();
+            try (PreparedStatement ps = conexion.prepareStatement(
+                    "SELECT table_name FROM information_schema.tables "
+                            + "WHERE table_schema = ? AND table_type = 'BASE TABLE' "
+                            + "AND table_name <> 'flyway_schema_history' ORDER BY table_name")) {
+                ps.setString(1, ESQUEMA);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        tablas.add(rs.getString(1));
+                    }
+                }
+            }
+
+            for (String tabla : tablas) {
+                String comentarioTabla = comentarioDeTabla(conexion, tabla);
+                md.append("## `").append(tabla).append("`\n\n");
+                if (comentarioTabla != null) {
+                    md.append(comentarioTabla).append("\n\n");
+                }
+                md.append("| Columna | Tipo | Nulo | Default | Comentario |\n");
+                md.append("|---|---|---|---|---|\n");
+
+                Map<String, String> comentariosColumnas = comentariosDeColumnas(conexion, tabla);
+
+                try (PreparedStatement ps = conexion.prepareStatement(
+                        "SELECT column_name, data_type, character_maximum_length, numeric_precision, "
+                                + "numeric_scale, is_nullable, column_default "
+                                + "FROM information_schema.columns "
+                                + "WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position")) {
+                    ps.setString(1, ESQUEMA);
+                    ps.setString(2, tabla);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            String columna = rs.getString("column_name");
+                            String tipo = formatearTipo(rs);
+                            String nulo = "YES".equals(rs.getString("is_nullable")) ? "" : "NOT NULL";
+                            String def = rs.getString("column_default");
+                            String comentario = comentariosColumnas.getOrDefault(columna, "");
+                            md.append("| ").append(columna)
+                              .append(" | ").append(tipo)
+                              .append(" | ").append(nulo)
+                              .append(" | ").append(def == null ? "" : escaparPipe(def))
+                              .append(" | ").append(escaparPipe(comentario))
+                              .append(" |\n");
+                        }
+                    }
+                }
+                md.append("\n");
+            }
+        }
+        return md.toString();
+    }
+
+    private String formatearTipo(ResultSet rs) throws Exception {
+        String tipo = rs.getString("data_type");
+        int longitud = rs.getInt("character_maximum_length");
+        if (!rs.wasNull() && longitud > 0) {
+            return tipo + "(" + longitud + ")";
+        }
+        int precision = rs.getInt("numeric_precision");
+        if (!rs.wasNull() && "numeric".equals(tipo)) {
+            int escala = rs.getInt("numeric_scale");
+            return tipo + "(" + precision + (rs.wasNull() ? "" : "," + escala) + ")";
+        }
+        return tipo;
+    }
+
+    private String comentarioDeTabla(Connection conexion, String tabla) throws Exception {
+        try (PreparedStatement ps = conexion.prepareStatement(
+                "SELECT obj_description((quote_ident(?) || '.' || quote_ident(?))::regclass, 'pg_class')")) {
+            ps.setString(1, ESQUEMA);
+            ps.setString(2, tabla);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString(1);
+                }
+            }
+        }
+        return null;
+    }
+
+    private Map<String, String> comentariosDeColumnas(Connection conexion, String tabla) throws Exception {
+        Map<String, String> resultado = new LinkedHashMap<>();
+        try (PreparedStatement ps = conexion.prepareStatement(
+                "SELECT cols.column_name, pg_catalog.col_description(c.oid, cols.ordinal_position::int) "
+                        + "FROM information_schema.columns cols "
+                        + "JOIN pg_catalog.pg_class c ON c.relname = cols.table_name "
+                        + "JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace AND n.nspname = cols.table_schema "
+                        + "WHERE cols.table_schema = ? AND cols.table_name = ?")) {
+            ps.setString(1, ESQUEMA);
+            ps.setString(2, tabla);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String comentario = rs.getString(2);
+                    if (comentario != null) {
+                        resultado.put(rs.getString(1), comentario);
+                    }
+                }
+            }
+        }
+        return resultado;
+    }
+
+    private String escaparPipe(String texto) {
+        return texto == null ? "" : texto.replace("|", "\\|").replace("\n", " ");
+    }
+}

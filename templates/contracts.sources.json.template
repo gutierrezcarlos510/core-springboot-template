@@ -1,0 +1,18 @@
+{
+  "$comment": "Copiar a la raíz del backend cliente como contracts.sources.json y ajustar 'files' si hace falta.",
+  "service": "CORE",
+  "repoPath": "../core-backend",
+  "envPath": "CORE_REPO_PATH",
+  "files": [
+    {
+      "from": "docs/database/core-schema.md",
+      "to": "docs/external/core/core-schema.md",
+      "contiene": "Esquema completo de public, incluida la sección 'Vistas' (el contrato)."
+    },
+    {
+      "from": "docs/openapi/core-openapi.json",
+      "to": "docs/external/core/core-openapi.json",
+      "contiene": "Spec OpenAPI de core-backend, para referencia."
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "$comment": "Copiar a la raíz del backend cliente como db-contract.json. Declara qué vistas core_v_* y columnas usa este repo con SQL directo. Un test (DbContractTest o equivalente) debe leer esto y verificarlo contra la base de dev real.",
+  "cliente": "{{SERVICIO}}",
+  "vistas": {
+    "core_v_usuarios": {
+      "columnas": ["id"],
+      "usado_en": []
+    }
+  }
+}

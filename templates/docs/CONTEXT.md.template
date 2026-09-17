@@ -1,0 +1,43 @@
+# Contexto del Proyecto: {{SERVICIO}}
+
+Guía contextual para agentes de IA que trabajen en este repositorio. Explica el PORQUÉ y la
+arquitectura — nunca copies acá datos concretos (versiones, columnas, endpoints): salen
+siempre de los archivos generados abajo. Es justo lo que quedó desactualizado en
+core-restobar-backend/CONTEXT.md (Spring Boot y columnas de tabla copiadas a mano) — no repitas
+ese error.
+
+## Stack
+
+Ver `pom.xml`. No copiar versión de Java/Spring Boot acá.
+
+* **Paquete base:** `{{PACKAGE}}`
+
+## Documentación generada (fuente de verdad)
+
+| Qué | Archivo | Generador |
+|---|---|---|
+| Endpoints propios | `docs/endpoints/{{service}}-endpoints.json` | `node scripts/export-endpoints.mjs --service {{SERVICIO}}` |
+| OpenAPI propio | `docs/openapi/{{service}}-openapi.json` | `mvn test -Dtest=OpenApiExportTest` |
+| Esquema propio (BD) | `docs/database/{{service}}-schema.md` | `node scripts/export-db-schema.mjs --service {{SERVICIO}}` |
+| Esquema de `public` en core | `docs/external/core/core-schema.md` | `node scripts/sync-contracts.mjs` |
+
+Antes de commitear, si tocaste controllers/DTOs, migraciones, o consultas contra `public.*`:
+
+```bash
+node scripts/export-endpoints.mjs --service {{SERVICIO}}
+mvn test -Dtest=OpenApiExportTest
+node scripts/export-db-schema.mjs --service {{SERVICIO}}   # si tocaste db/migration
+node scripts/sync-contracts.mjs                            # si core avisó un cambio
+```
+
+## Arquitectura multi-tenant
+
+<!-- Explicar acá el mecanismo real (TenantFilter, search_path, etc.), sin copiar nombres de
+     columnas ni tablas — esas viven en los archivos generados. -->
+
+## Contrato con `public` de core-backend
+
+Este backend lee `public.core_v_*` (vistas, nunca tablas reales) declarado en
+`db-contract.json`. `DbContractTest`/equivalente corre contra dev real y falla si core rompió
+algo declarado ahí sin avisar. Ver `docs/external/core/core-schema.md` (sección "Vistas") para
+lo que core expone hoy.

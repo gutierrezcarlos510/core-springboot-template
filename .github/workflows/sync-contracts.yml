@@ -1,0 +1,35 @@
+name: Contrato con core (reutilizable)
+
+# Workflow reutilizable: cada backend cliente de core-backend lo invoca con
+#   uses: gutierrezcarlos510/infosystem-dev-tools/.github/workflows/sync-contracts.yml@v1
+# Requiere contracts.sources.json + scripts/sync-contracts.mjs instalados (ver templates/)
+# y db-contract.json si declara vistas. Hace checkout de core-backend-2026 aparte y
+# verifica que docs/external/core/ esté al día.
+
+on:
+  workflow_call:
+    secrets:
+      core-repo-token:
+        required: true
+
+jobs:
+  contrato-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Checkout core-backend
+        uses: actions/checkout@v4
+        with:
+          repository: gutierrezcarlos510/core-backend-2026
+          token: ${{ secrets.core-repo-token }}
+          path: external/core-backend
+
+      - name: Verificar docs/external/core al día
+        env:
+          CORE_REPO_PATH: external/core-backend
+        run: node scripts/sync-contracts.mjs --check

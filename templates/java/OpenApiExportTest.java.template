@@ -1,0 +1,110 @@
+package {{PACKAGE}}.openapi;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyPairGenerator;
+import java.util.Base64;
+
+import javax.sql.DataSource;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.SimpleDriverDataSource;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.json.JsonMapper;
+
+/**
+ * Genera docs/openapi/{{service}}-openapi.json a partir de los controllers.
+ *
+ *   mvn test -Dtest=OpenApiExportTest                      # regenera el archivo
+ *   mvn test -Dtest=OpenApiExportTest -Dopenapi.check=true # CI: falla si está desactualizado
+ *
+ * No necesita base de datos: excluye el autoconfig de DataSource/Flyway (propiedad
+ * spring.autoconfigure.exclude), así nunca se toca una base real (local o remota) solo
+ * por generar documentación.
+ *
+ * IMPORTANTE al copiar esta plantilla: si este backend agrega un ApplicationRunner propio
+ * que dependa de un DataSource (por ejemplo, migraciones multi-tenant como en
+ * core-restobar-backend), reemplazar la exclusión de autoconfig acá por un @TestConfiguration
+ * que provea un DataSource dummy y anule ese runner — ver OpenApiExportTest de
+ * core-restobar-backend para el patrón completo.
+ */
+@SpringBootTest(properties = {
+        "springdoc.api-docs.enabled=true",
+        "springdoc.writer-with-order-by-keys=true",
+        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,"
+                + "org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration"
+})
+class OpenApiExportTest {
+
+    private static final Path SALIDA = Path.of("docs/openapi/{{service}}-openapi.json");
+
+    /** Llave pública descartable: el filtro JWT la exige al arrancar, pero acá no se valida nada. */
+    @DynamicPropertySource
+    static void llaveJwtTemporal(DynamicPropertyRegistry registry) throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        String pem = "-----BEGIN PUBLIC KEY-----\n"
+                + Base64.getMimeEncoder(64, "\n".getBytes()).encodeToString(generator.generateKeyPair().getPublic().getEncoded())
+                + "\n-----END PUBLIC KEY-----\n";
+        Path publica = Files.writeString(Files.createTempDirectory("openapi-export-certs").resolve("public_key.pem"), pem);
+        registry.add("app.jwt.public-key-path", () -> publica.toUri().toString());
+    }
+
+    /**
+     * Los repositorios que reciban JdbcClient siguen necesitando el bean para arrancar el
+     * contexto, aunque no lo usen (MockMvc solo pega a /v3/api-docs). No conecta: la conexión
+     * recién se abriría si algún endpoint la usara, y este test no llama a ninguno.
+     */
+    @TestConfiguration
+    static class JdbcClientSinConexion {
+        @Bean
+        DataSource dataSource() {
+            return new SimpleDriverDataSource(new org.postgresql.Driver(), "jdbc:postgresql://127.0.0.1:1/sin_bd");
+        }
+
+        @Bean
+        JdbcClient jdbcClient(DataSource dataSource) {
+            return JdbcClient.create(dataSource);
+        }
+    }
+
+    @Autowired
+    private WebApplicationContext context;
+
+    @Test
+    void exportarEspecificacion() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
+        String json = mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+        ObjectMapper mapper = JsonMapper.builder().enable(SerializationFeature.INDENT_OUTPUT).build();
+        String salida = mapper.writeValueAsString(mapper.readTree(json)) + "\n";
+
+        if (Boolean.getBoolean("openapi.check")) {
+            String actual = Files.exists(SALIDA) ? Files.readString(SALIDA) : "";
+            if (!actual.equals(salida)) {
+                throw new AssertionError(SALIDA + " está desactualizado. Ejecutá: mvn test -Dtest=OpenApiExportTest");
+            }
+            return;
+        }
+        Files.createDirectories(SALIDA.getParent());
+        Files.writeString(SALIDA, salida);
+    }
+}
