@@ -216,36 +216,35 @@ public class ${pascalCase}Repository {
 
     public ${pascalCase} save(${pascalCase} entity) {
         String sql = """
-            INSERT INTO ${nombreTabla} (id, nombre, descripcion, estado, created_at, updated_at)
-            VALUES (:id, :nombre, :descripcion, :estado, :createdAt, :updatedAt)
+            INSERT INTO ${nombreTabla} (nombre, descripcion, estado)
+            VALUES (:nombre, :descripcion, :estado)
+            RETURNING id, nombre, descripcion, estado, created_at, updated_at
             """;
-        jdbcClient.sql(sql)
-            .param("id", entity.id())
+        return jdbcClient.sql(sql)
             .param("nombre", entity.nombre())
             .param("descripcion", entity.descripcion())
             .param("estado", entity.estado())
-            .param("createdAt", java.sql.Timestamp.from(entity.createdAt()))
-            .param("updatedAt", java.sql.Timestamp.from(entity.updatedAt()))
-            .update();
-        return entity;
+            .query(this::mapRow)
+            .single();
     }
 
-    public boolean update(${pascalCase} entity) {
+    public Optional<${pascalCase}> update(UUID id, ${pascalCase} entity) {
         String sql = """
             UPDATE ${nombreTabla}
             SET nombre = :nombre,
                 descripcion = :descripcion,
                 estado = :estado,
-                updated_at = :updatedAt
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
+            RETURNING id, nombre, descripcion, estado, created_at, updated_at
             """;
         return jdbcClient.sql(sql)
-            .param("id", entity.id())
+            .param("id", id)
             .param("nombre", entity.nombre())
             .param("descripcion", entity.descripcion())
             .param("estado", entity.estado())
-            .param("updatedAt", java.sql.Timestamp.from(entity.updatedAt()))
-            .update() > 0;
+            .query(this::mapRow)
+            .optional();
     }
 
     public boolean deleteById(UUID id) {
@@ -294,34 +293,31 @@ public class ${pascalCase}Service {
 
     @Transactional
     public ${pascalCase}Response crear(${pascalCase}Request request) {
-        Instant ahora = Instant.now();
         ${pascalCase} nuevo = new ${pascalCase}(
-            UUID.randomUUID(),
+            null,
             request.nombre(),
             request.descripcion(),
             request.estado() != null ? request.estado() : "ACTIVO",
-            ahora,
-            ahora
+            null,
+            null
         );
         return toResponse(repository.save(nuevo));
     }
 
     @Transactional
     public ${pascalCase}Response actualizar(UUID id, ${pascalCase}Request request) {
-        ${pascalCase} existente = repository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("${pascalCase} no encontrado con el ID: " + id));
-
-        Instant ahora = Instant.now();
-        ${pascalCase} actualizado = new ${pascalCase}(
-            existente.id(),
+        ${pascalCase} datosActualizar = new ${pascalCase}(
+            null,
             request.nombre(),
             request.descripcion(),
             request.estado(),
-            existente.createdAt(),
-            ahora
+            null,
+            null
         );
 
-        repository.update(actualizado);
+        ${pascalCase} actualizado = repository.update(id, datosActualizar)
+            .orElseThrow(() -> new ResourceNotFoundException("${pascalCase} no encontrado con el ID: " + id));
+
         return toResponse(actualizado);
     }
 
