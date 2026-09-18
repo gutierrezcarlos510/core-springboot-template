@@ -1,0 +1,80 @@
+package {{PACKAGE}}.config;
+
+/*
+import java.util.List;
+
+import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.FlywayException;
+import org.flywaydb.core.api.output.MigrateResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
+import com.zaxxer.hikari.HikariDataSource;
+
+/**
+ * Runner opcional de Flyway Multi-Tenant.
+ * Escanea dinámicamente y aplica las migraciones Flyway a todos los esquemas
+ * de la base de datos que coincidan con el prefijo `esquema_*`.
+ *
+ * Para activar:
+ * 1. Descomentar esta clase (`@Component`).
+ * 2. En application.yml, establecer `spring.flyway.enabled: false` para evitar que Flyway corra en el esquema public por defecto.
+ */
+/*
+@Component
+public class FlywayTenantRunner implements ApplicationRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(FlywayTenantRunner.class);
+    private final HikariDataSource actualDataSource;
+    private final JdbcTemplate jdbcTemplate;
+
+    public FlywayTenantRunner(HikariDataSource actualDataSource) {
+        this.actualDataSource = actualDataSource;
+        this.jdbcTemplate = new JdbcTemplate(actualDataSource);
+    }
+
+    @Override
+    public void run(ApplicationArguments args) {
+        jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS esquema_plantilla");
+
+        List<String> esquemas = jdbcTemplate.queryForList(
+            "SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'esquema_%'",
+            String.class
+        );
+
+        if (esquemas.isEmpty()) {
+            log.info("No se encontraron esquemas con el prefijo esquema_* para migrar.");
+            return;
+        }
+
+        int ok = 0;
+        int fallidos = 0;
+        for (String esquema : esquemas) {
+            log.info("Migrando esquema multi-tenant: {}", esquema);
+            try {
+                Flyway flyway = Flyway.configure(getClass().getClassLoader())
+                    .dataSource(actualDataSource)
+                    .schemas(esquema)
+                    .defaultSchema(esquema)
+                    .locations("classpath:db/migration")
+                    .baselineOnMigrate(true)
+                    .baselineVersion("1")
+                    .load();
+
+                flyway.repair();
+                MigrateResult resultado = flyway.migrate();
+                log.info("Esquema {}: {} migración(es) ejecutada(s) con éxito.", esquema, resultado.migrationsExecuted);
+                ok++;
+            } catch (FlywayException e) {
+                fallidos++;
+                log.error("Error migrando esquema: {}", esquema, e);
+            }
+        }
+        log.info("Migración Multi-Tenant finalizada. Esquemas procesados con éxito: {}/{}.", ok, esquemas.size());
+    }
+}
+*/
