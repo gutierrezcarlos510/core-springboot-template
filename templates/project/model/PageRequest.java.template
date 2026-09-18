@@ -1,0 +1,46 @@
+package {{PACKAGE}}.model;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+/**
+ * Objeto de paginación genérico enviado por el cliente en solicitudes POST /buscar o GET con filtros.
+ */
+@Schema(description = "Solicitud de paginación y filtros dinámicos")
+public record PageRequest(
+    @Schema(description = "Número de página (0-indexed)", example = "0", defaultValue = "0")
+    int page,
+
+    @Schema(description = "Tamaño de página (-1 para obtener todos los registros)", example = "10", defaultValue = "10")
+    int size,
+
+    @Schema(description = "Campo para ordenar", example = "createdAt")
+    String sortBy,
+
+    @Schema(description = "Dirección de ordenamiento (asc, desc)", example = "asc", defaultValue = "asc")
+    String sortDir,
+
+    @Schema(description = "Filtros dinámicos clave-valor")
+    Map<String, Object> filters
+) {
+    public PageRequest {
+        if (page < 0) {
+            throw new IllegalArgumentException("El número de página no puede ser negativo.");
+        }
+        if (size <= 0 && size != -1) {
+            throw new IllegalArgumentException("El tamaño de página debe ser mayor a cero o -1 para retornar todos.");
+        }
+        if (sortDir == null || sortDir.isBlank()) {
+            sortDir = "asc";
+        }
+        if (filters == null) {
+            filters = new HashMap<>();
+        }
+    }
+
+    public PageRequest() {
+        this(0, 10, null, "asc", new HashMap<>());
+    }
+}

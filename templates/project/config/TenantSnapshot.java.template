@@ -1,0 +1,13 @@
+package {{PACKAGE}}.config;
+
+import java.util.UUID;
+
+/**
+ * Snapshot inmutable del contexto de Tenant para propagación en tareas asíncronas / hilos de worker.
+ */
+public record TenantSnapshot(
+    String tenantSchema,
+    String subdominio,
+    UUID usuarioId,
+    String correlationId
+) {}

@@ -1,0 +1,40 @@
+package {{PACKAGE}}.model;
+
+import java.util.List;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+/**
+ * Respuesta paginada genérica para consultas con paginación.
+ */
+@Schema(description = "Respuesta paginada genérica")
+public record PageResponse<T>(
+    @Schema(description = "Lista de elementos en la página actual")
+    List<T> content,
+
+    @Schema(description = "Número de página actual (0-indexed)")
+    int pageNumber,
+
+    @Schema(description = "Tamaño de la página")
+    int pageSize,
+
+    @Schema(description = "Total general de elementos en la consulta")
+    long totalElements,
+
+    @Schema(description = "Total de páginas disponibles")
+    int totalPages,
+
+    @Schema(description = "Indica si es la última página")
+    boolean last
+) {
+    public PageResponse(List<T> content, long totalElements, int pageNumber, int pageSize) {
+        this(
+            content,
+            pageNumber,
+            pageSize,
+            totalElements,
+            pageSize > 0 ? (int) Math.ceil((double) totalElements / pageSize) : 0,
+            pageNumber >= (pageSize > 0 ? (int) Math.ceil((double) totalElements / pageSize) : 0) - 1
+        );
+    }
+}
