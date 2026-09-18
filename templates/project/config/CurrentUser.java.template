@@ -1,0 +1,17 @@
+package {{PACKAGE}}.config;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * Anotación para inyectar automáticamente el UUID del usuario autenticado
+ * directamente en los parámetros de métodos del `@RestController`.
+ */
+@Target(ElementType.PARAMETER)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface CurrentUser {
+}
