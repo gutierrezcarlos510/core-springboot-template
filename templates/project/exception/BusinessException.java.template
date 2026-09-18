@@ -1,0 +1,10 @@
+package {{PACKAGE}}.exception;
+
+/**
+ * Excepción para violaciones de reglas de negocio en la capa de servicios.
+ */
+public class BusinessException extends RuntimeException {
+    public BusinessException(String message) {
+        super(message);
+    }
+}

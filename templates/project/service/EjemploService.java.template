@@ -1,0 +1,105 @@
+package {{PACKAGE}}.service;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import {{PACKAGE}}.exception.BusinessException;
+import {{PACKAGE}}.exception.ResourceNotFoundException;
+import {{PACKAGE}}.model.Ejemplo;
+import {{PACKAGE}}.model.EjemploRequest;
+import {{PACKAGE}}.model.EjemploResponse;
+import {{PACKAGE}}.repository.EjemploRepository;
+
+/**
+ * Servicio de negocio para la gestión de Ejemplo.
+ * Encapsula la lógica de negocio, validaciones transaccionales y transformaciones DTO <-> Modelo.
+ */
+@Service
+@Transactional(readOnly = true)
+public class EjemploService {
+
+    private final EjemploRepository ejemploRepository;
+
+    public EjemploService(EjemploRepository ejemploRepository) {
+        this.ejemploRepository = ejemploRepository;
+    }
+
+    public List<EjemploResponse> listarTodos() {
+        return ejemploRepository.findAll().stream()
+            .map(this::toResponse)
+            .toList();
+    }
+
+    public List<EjemploResponse> listarPorEstado(String estado) {
+        return ejemploRepository.findByEstado(estado).stream()
+            .map(this::toResponse)
+            .toList();
+    }
+
+    public EjemploResponse obtenerPorId(UUID id) {
+        Ejemplo ejemplo = ejemploRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Ejemplo no encontrado con el ID: " + id));
+        return toResponse(ejemplo);
+    }
+
+    @Transactional
+    public EjemploResponse crear(EjemploRequest request) {
+        if (ejemploRepository.existsByNombre(request.nombre())) {
+            throw new BusinessException("Ya existe un registro de Ejemplo con el nombre: " + request.nombre());
+        }
+
+        Instant ahora = Instant.now();
+        Ejemplo nuevo = new Ejemplo(
+            UUID.randomUUID(),
+            request.nombre(),
+            request.descripcion(),
+            request.estado() != null ? request.estado() : "ACTIVO",
+            ahora,
+            ahora
+        );
+
+        Ejemplo guardado = ejemploRepository.save(nuevo);
+        return toResponse(guardado);
+    }
+
+    @Transactional
+    public EjemploResponse actualizar(UUID id, EjemploRequest request) {
+        Ejemplo existente = ejemploRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Ejemplo no encontrado con el ID: " + id));
+
+        Instant ahora = Instant.now();
+        Ejemplo actualizado = new Ejemplo(
+            existente.id(),
+            request.nombre(),
+            request.descripcion(),
+            request.estado(),
+            existente.createdAt(),
+            ahora
+        );
+
+        ejemploRepository.update(actualizado);
+        return toResponse(actualizado);
+    }
+
+    @Transactional
+    public void eliminar(UUID id) {
+        if (!ejemploRepository.deleteById(id)) {
+            throw new ResourceNotFoundException("No se pudo eliminar. Ejemplo no encontrado con el ID: " + id);
+        }
+    }
+
+    private EjemploResponse toResponse(Ejemplo modelo) {
+        return new EjemploResponse(
+            modelo.id(),
+            modelo.nombre(),
+            modelo.descripcion(),
+            modelo.estado(),
+            modelo.createdAt(),
+            modelo.updatedAt()
+        );
+    }
+}

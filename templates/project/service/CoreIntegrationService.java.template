@@ -1,0 +1,71 @@
+package {{PACKAGE}}.service;
+
+/*
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.infosystem.core.client.CoreUsuarioClient;
+import com.infosystem.core.client.dto.UsuarioContactoResponse;
+import com.infosystem.core.client.dto.UsuarioRequest;
+import com.infosystem.core.client.dto.UsuarioResponse;
+import com.infosystem.core.client.exception.CoreException;
+
+import {{PACKAGE}}.exception.BusinessException;
+import {{PACKAGE}}.exception.ResourceNotFoundException;
+
+/**
+ * Ejemplo de servicio de integración con core-backend vía `core-api-client`.
+ * Demuestra la verificación de contactos, creación de usuarios centrales y manejo de `CoreException`.
+ *
+ * Para activar:
+ * 1. Descomentar `core-api-client` en `pom.xml`.
+ * 2. Descomentar `CoreClientConfig` en el paquete `config`.
+ * 3. Descomentar esta clase.
+ */
+/*
+@Service
+public class CoreIntegrationService {
+
+    private static final Logger log = LoggerFactory.getLogger(CoreIntegrationService.class);
+    private final CoreUsuarioClient coreUsuarioClient;
+
+    public CoreIntegrationService(CoreUsuarioClient coreUsuarioClient) {
+        this.coreUsuarioClient = coreUsuarioClient;
+    }
+
+    public UsuarioContactoResponse verificarContactoGlobal(String email, String telefono, String username) {
+        try {
+            return coreUsuarioClient.verificarContacto(email, telefono, username);
+        } catch (CoreException ex) {
+            log.error("Error al consultar contacto en core-backend [status={}]: {}", ex.getStatus(), ex.getMessage());
+            throw new BusinessException("No se pudo verificar la identidad del usuario en el sistema central.");
+        }
+    }
+
+    public UsuarioResponse crearUsuarioCentral(UsuarioRequest request) {
+        try {
+            return coreUsuarioClient.createUser(request);
+        } catch (CoreException ex) {
+            log.error("Error al crear usuario en core-backend [status={}]: {}", ex.getStatus(), ex.getMessage());
+            if (ex.getStatus() == 409) {
+                throw new BusinessException("El usuario o email ya existe en el sistema central.");
+            }
+            throw new BusinessException("Error al registrar el usuario en el sistema central: " + ex.getMessage());
+        }
+    }
+
+    public UsuarioResponse obtenerUsuarioCentral(UUID usuarioId) {
+        try {
+            return coreUsuarioClient.getUserById(usuarioId);
+        } catch (CoreException ex) {
+            if (ex.getStatus() == 404) {
+                throw new ResourceNotFoundException("Usuario no encontrado en el sistema central: " + usuarioId);
+            }
+            throw new BusinessException("Error de comunicación con core-backend: " + ex.getMessage());
+        }
+    }
+}
+*/

@@ -30,6 +30,11 @@ app:
     public-key-path: ${JWT_PUBLIC_KEY_PATH:classpath:certs/public_key.pem}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
+# Configuración opcional para comunicación con core-backend vía core-api-client
+# core:
+#   backend:
+#     url: ${CORE_BACKEND_URL:http://localhost:8080}
+
 logging:
   level:
     root: INFO

@@ -1,0 +1,94 @@
+package {{PACKAGE}}.controller;
+
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import {{PACKAGE}}.model.ApiResponse;
+import {{PACKAGE}}.model.EjemploRequest;
+import {{PACKAGE}}.model.EjemploResponse;
+import {{PACKAGE}}.service.EjemploService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+
+/**
+ * Controller REST de ejemplo: demuestra la arquitectura por capas (Controller -> Service -> Repository -> Model/DTOs)
+ * y el estándar de documentación OpenAPI. Borrar o reemplazar en el proyecto real.
+ */
+@RestController
+@RequestMapping("/ejemplos")
+@Tag(name = "Ejemplos", description = "Endpoints de referencia del template — demostración de la arquitectura por capas.")
+public class EjemploController {
+
+    private final EjemploService ejemploService;
+
+    public EjemploController(EjemploService ejemploService) {
+        this.ejemploService = ejemploService;
+    }
+
+    @GetMapping
+    @Operation(summary = "Listar elementos de Ejemplo", description = "Obtiene la lista de elementos almacenados, opcionalmente filtrados por estado.")
+    public ResponseEntity<ApiResponse<List<EjemploResponse>>> listar(
+        @Parameter(description = "Filtro opcional por estado (ej: ACTIVO, INACTIVO)")
+        @RequestParam(required = false) String estado
+    ) {
+        List<EjemploResponse> resultado = (estado != null && !estado.isBlank())
+            ? ejemploService.listarPorEstado(estado)
+            : ejemploService.listarTodos();
+        return ResponseEntity.ok(ApiResponse.ok(resultado));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Obtener Ejemplo por ID", description = "Retorna un registro de Ejemplo según su UUID único.")
+    public ResponseEntity<ApiResponse<EjemploResponse>> obtenerPorId(
+        @Parameter(description = "UUID único del registro", required = true)
+        @PathVariable UUID id
+    ) {
+        EjemploResponse resultado = ejemploService.obtenerPorId(id);
+        return ResponseEntity.ok(ApiResponse.ok(resultado));
+    }
+
+    @PostMapping
+    @Operation(summary = "Crear nuevo Ejemplo", description = "Registra un nuevo elemento de Ejemplo en el sistema.")
+    public ResponseEntity<ApiResponse<EjemploResponse>> crear(
+        @Valid @RequestBody EjemploRequest request
+    ) {
+        EjemploResponse nuevo = ejemploService.crear(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(nuevo, "Ejemplo creado exitosamente"));
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Actualizar Ejemplo existente", description = "Modifica los datos de un registro de Ejemplo identificado por su UUID.")
+    public ResponseEntity<ApiResponse<EjemploResponse>> actualizar(
+        @Parameter(description = "UUID del registro a actualizar", required = true)
+        @PathVariable UUID id,
+        @Valid @RequestBody EjemploRequest request
+    ) {
+        EjemploResponse actualizado = ejemploService.actualizar(id, request);
+        return ResponseEntity.ok(ApiResponse.ok(actualizado, "Ejemplo actualizado exitosamente"));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar Ejemplo", description = "Elimina físicamente un registro de Ejemplo por su UUID.")
+    public ResponseEntity<ApiResponse<Void>> eliminar(
+        @Parameter(description = "UUID del registro a eliminar", required = true)
+        @PathVariable UUID id
+    ) {
+        ejemploService.eliminar(id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Ejemplo eliminado exitosamente"));
+    }
+}

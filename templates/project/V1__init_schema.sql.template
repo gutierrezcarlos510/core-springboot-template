@@ -1,25 +1,28 @@
 -- Esquema inicial de {{SERVICIO}}. Reemplazar por las tablas reales del dominio.
 --
--- Reglas (ver docs/database/README.md en core-backend, mismo criterio acá):
+-- Reglas:
 -- 1. Nunca editar una migración ya aplicada en un entorno compartido; corregir con una nueva.
 -- 2. COMMENT ON TABLE / COMMENT ON COLUMN en toda tabla o columna nueva: alimenta
 --    docs/database/{{service}}-schema.md generado.
--- 3. Operaciones de riesgo (DROP, RENAME, cambio de tipo) en dos pasos: expand primero,
---    contract después de que los consumidores migraron.
--- 4. Si esta tabla la consulta otro backend con SQL directo, avisarle y declarar la vista
---    de contrato correspondiente (ver db-contract.json de ese consumidor).
+-- 3. Si esta tabla la consulta otro backend con SQL directo, exponerla mediante vista
+--    de contrato pública (core_v_*).
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE ejemplo (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nombre      VARCHAR(150) NOT NULL,
+    descripcion VARCHAR(255),
     estado      VARCHAR(20) DEFAULT 'ACTIVO' NOT NULL,
-    creado_en   TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+    created_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-COMMENT ON TABLE ejemplo IS 'Tabla de ejemplo del template. Borrar junto con EjemploController al arrancar el proyecto real.';
-COMMENT ON COLUMN ejemplo.id IS 'Identificador único (UUID).';
-COMMENT ON COLUMN ejemplo.nombre IS 'Nombre descriptivo.';
-COMMENT ON COLUMN ejemplo.estado IS 'ACTIVO/INACTIVO — eliminación lógica.';
-COMMENT ON COLUMN ejemplo.creado_en IS 'Fecha de creación del registro.';
+COMMENT ON TABLE ejemplo IS 'Tabla de ejemplo del template demostrando el estándar por capas y comentarios de BD. Borrar al iniciar el proyecto real.';
+COMMENT ON COLUMN ejemplo.id IS 'Identificador único UUID generado por la base de datos.';
+COMMENT ON COLUMN ejemplo.nombre IS 'Nombre descriptivo del elemento de ejemplo.';
+COMMENT ON COLUMN ejemplo.descripcion IS 'Descripción detallada opcional del elemento.';
+COMMENT ON COLUMN ejemplo.estado IS 'Estado operativo del elemento (ACTIVO, INACTIVO).';
+COMMENT ON COLUMN ejemplo.created_at IS 'Fecha y hora de creación del registro en el sistema.';
+COMMENT ON COLUMN ejemplo.updated_at IS 'Fecha y hora de la última actualización del registro.';
+

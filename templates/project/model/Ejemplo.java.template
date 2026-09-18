@@ -1,0 +1,20 @@
+package {{PACKAGE}}.model;
+
+import java.time.Instant;
+import java.util.UUID;
+
+/**
+ * Modelo de dominio inmutable para la entidad Ejemplo.
+ */
+public record Ejemplo(
+    UUID id,
+    String nombre,
+    String descripcion,
+    String estado,
+    Instant createdAt,
+    Instant updatedAt
+) {
+    public static Ejemplo de(UUID id, String nombre, String descripcion, String estado, Instant createdAt, Instant updatedAt) {
+        return new Ejemplo(id, nombre, descripcion, estado, createdAt, updatedAt);
+    }
+}

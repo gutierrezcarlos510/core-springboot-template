@@ -1,18 +1,16 @@
 # Contexto del Proyecto: {{SERVICIO}}
 
-Guía contextual para agentes de IA que trabajen en este repositorio. Explica el PORQUÉ y la
-arquitectura — nunca copies acá datos concretos (versiones, columnas, endpoints): salen
-siempre de los archivos generados abajo. Es justo lo que quedó desactualizado en
-core-restobar-backend/CONTEXT.md (Spring Boot y columnas de tabla copiadas a mano) — no repitas
-ese error.
+Guía contextual para desarrolladores y agentes de IA que trabajen en este repositorio. Explica el PORQUÉ y la arquitectura. Los datos concretos (versiones, columnas, endpoints) se generan automáticamente en los archivos de `docs/`.
 
-## Stack
+## 1. Stack Tecnológico
 
-Ver `pom.xml`. No copiar versión de Java/Spring Boot acá.
+- **Java 17 / Spring Boot 4.x**
+- **Paquete base:** `{{PACKAGE}}`
+- **Persistencia:** PostgreSQL + Spring `JdbcClient` + Flyway Migrations
+- **Seguridad:** Spring Security (Stateless / JWT)
+- **Documentación:** Springdoc OpenAPI 3.0
 
-* **Paquete base:** `{{PACKAGE}}`
-
-## Documentación generada (fuente de verdad)
+## 2. Documentación Generada (Fuente de Verdad)
 
 | Qué | Archivo | Generador |
 |---|---|---|
@@ -21,23 +19,22 @@ Ver `pom.xml`. No copiar versión de Java/Spring Boot acá.
 | Esquema propio (BD) | `docs/database/{{service}}-schema.md` | `node scripts/export-db-schema.mjs --service {{SERVICIO}}` |
 | Esquema de `public` en core | `docs/external/core/core-schema.md` | `node scripts/sync-contracts.mjs` |
 
-Antes de commitear, si tocaste controllers/DTOs, migraciones, o consultas contra `public.*`:
+Antes de commitear cambios en controladores, migraciones o contratos:
 
 ```bash
 node scripts/export-endpoints.mjs --service {{SERVICIO}}
 mvn test -Dtest=OpenApiExportTest
-node scripts/export-db-schema.mjs --service {{SERVICIO}}   # si tocaste db/migration
-node scripts/sync-contracts.mjs                            # si core avisó un cambio
+node scripts/export-db-schema.mjs --service {{SERVICIO}}
 ```
 
-## Arquitectura multi-tenant
+## 3. Arquitectura por Capas
 
-<!-- Explicar acá el mecanismo real (TenantFilter, search_path, etc.), sin copiar nombres de
-     columnas ni tablas — esas viven en los archivos generados. -->
+- **Controller (`{{PACKAGE}}.controller`)**: REST, DTOs, validaciones `@Valid`, `@Operation` OpenAPI.
+- **Service (`{{PACKAGE}}.service`)**: Lógica de negocio, `@Transactional`, reglas de dominio.
+- **Repository (`{{PACKAGE}}.repository`)**: Consultas SQL con `JdbcClient` y `RowMapper`.
+- **Model (`{{PACKAGE}}.model`)**: Estructuras inmutables Java Records, DTOs (`*Request`, `*Response`) y `ApiResponse<T>`.
+- **Exception (`{{PACKAGE}}.exception`)**: Manejador global `GlobalExceptionHandler` con `ApiResponse`.
 
-## Contrato con `public` de core-backend
+## 4. Contrato con `public` de core-backend
 
-Este backend lee `public.core_v_*` (vistas, nunca tablas reales) declarado en
-`db-contract.json`. `DbContractTest`/equivalente corre contra dev real y falla si core rompió
-algo declarado ahí sin avisar. Ver `docs/external/core/core-schema.md` (sección "Vistas") para
-lo que core expone hoy.
+Este backend lee las vistas `public.core_v_*` declaradas en `db-contract.json`. `DbContractTest` valida en CI que las vistas sigan disponibles y compatibles.

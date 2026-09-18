@@ -1,0 +1,24 @@
+{
+  "name": "core-springboot-template",
+  "version": "1.0.0",
+  "description": "Plantilla y herramientas compartidas para backends Spring Boot con arquitectura por capas, OpenAPI y esquema de BD vivo",
+  "type": "module",
+  "scripts": {
+    "scaffold": "node scripts/scaffold-new-backend.mjs",
+    "scaffold:module": "node scripts/scaffold-module.mjs",
+    "export:endpoints": "node scripts/export-endpoints.mjs",
+    "export:schema": "node scripts/export-db-schema.mjs",
+    "sync:contracts": "node scripts/sync-contracts.mjs",
+    "coverage:openapi": "node scripts/openapi-coverage.mjs"
+  },
+  "keywords": [
+    "spring-boot",
+    "java",
+    "template",
+    "flyway",
+    "openapi",
+    "scaffold"
+  ],
+  "author": "infosystem",
+  "license": "MIT"
+}

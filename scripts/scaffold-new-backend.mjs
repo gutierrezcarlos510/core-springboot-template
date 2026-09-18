@@ -12,26 +12,9 @@
  *   {{SERVICIO}}  -> FARMACIA               (mayúsculas, para --service en los scripts)
  *   {{service}}   -> farmacia               (minúsculas, para nombres de archivo)
  *   {{PACKAGE}}   -> com.infosystem.farmacia
- *
- * Qué copia:
- *   scripts/export-endpoints.mjs, openapi-coverage.mjs, export-db-schema.mjs,
- *   sync-contracts.mjs               -> <out>/scripts/            (sin placeholders, genéricos)
- *   templates/contracts.sources.json.template -> <out>/contracts.sources.json
- *   templates/db-contract.json.template       -> <out>/db-contract.json
- *   templates/docs/CONTEXT.md.template        -> <out>/CONTEXT.md y <out>/AGENTS.md
- *   templates/java/*.template                 -> <out>/src/test/java/<paquete>/<nombre>.java
- *   templates/project/pom.xml.template         -> <out>/pom.xml
- *   templates/project/application.yml.template -> <out>/src/main/resources/application.yml
- *   templates/project/V1__init_schema.sql.template -> <out>/src/main/resources/db/migration/V1__init_schema.sql
- *   templates/project/Application.java.template    -> <out>/src/main/java/<paquete>/Application.java
- *   templates/project/EjemploController.java.template -> <out>/src/main/java/<paquete>/controller/EjemploController.java
- *   templates/project/SecurityConfig.java.template    -> <out>/src/main/java/<paquete>/config/SecurityConfig.java
- *   templates/project/.env.example.template    -> <out>/.env.example
- *
- * No sobrescribe archivos que ya existan en destino (avisa y sigue).
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const raiz = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -71,6 +54,25 @@ function escribir(destinoAbs, contenido) {
   console.log(`+ ${destinoAbs}`);
 }
 
+function copiarDirectorioTemplates(srcDir, targetJavaDir) {
+  function escanear(dirActual) {
+    const entradas = readdirSync(dirActual);
+    for (const entrada of entradas) {
+      const fullPath = join(dirActual, entrada);
+      const relPath = relative(srcDir, fullPath);
+      if (statSync(fullPath).isDirectory()) {
+        escanear(fullPath);
+      } else if (entrada.endsWith('.java.template')) {
+        const destRel = relPath.replace('.template', '');
+        const targetPath = join(targetJavaDir, destRel);
+        const contenido = aplicarPlaceholders(readFileSync(fullPath, 'utf8'));
+        escribir(targetPath, contenido);
+      }
+    }
+  }
+  escanear(srcDir);
+}
+
 // 1. Scripts genéricos: se copian tal cual (sin placeholders).
 mkdirSync(join(destino, 'scripts'), { recursive: true });
 for (const archivo of readdirSync(join(raiz, 'scripts'))) {
@@ -78,19 +80,29 @@ for (const archivo of readdirSync(join(raiz, 'scripts'))) {
   escribir(join(destino, 'scripts', archivo), readFileSync(join(raiz, 'scripts', archivo), 'utf8'));
 }
 
-// 2. JSON y contexto de agentes en la raíz. AGENTS.md y CONTEXT.md quedan idénticos:
-//    distintos asistentes buscan uno u otro nombre por convención.
+// 2. JSON y contexto de agentes en la raíz.
 escribir(join(destino, 'contracts.sources.json'),
   aplicarPlaceholders(readFileSync(join(raiz, 'templates/contracts.sources.json.template'), 'utf8')));
 escribir(join(destino, 'db-contract.json'),
   aplicarPlaceholders(readFileSync(join(raiz, 'templates/db-contract.json.template'), 'utf8')));
+
 const contexto = aplicarPlaceholders(readFileSync(join(raiz, 'templates/docs/CONTEXT.md.template'), 'utf8'));
+const agentsGuide = existsSync(join(raiz, 'templates/docs/AGENTS.md.template'))
+  ? aplicarPlaceholders(readFileSync(join(raiz, 'templates/docs/AGENTS.md.template'), 'utf8'))
+  : contexto;
+
 escribir(join(destino, 'CONTEXT.md'), contexto);
-escribir(join(destino, 'AGENTS.md'), contexto);
+escribir(join(destino, 'AGENTS.md'), agentsGuide);
+
+if (existsSync(join(raiz, '.agents/AGENTS.md'))) {
+  escribir(join(destino, '.agents/AGENTS.md'),
+    aplicarPlaceholders(readFileSync(join(raiz, '.agents/AGENTS.md'), 'utf8')));
+}
+
 escribir(join(destino, '.env.example'),
   aplicarPlaceholders(readFileSync(join(raiz, 'templates/project/.env.example.template'), 'utf8')));
 
-// 3. Proyecto Spring Boot: pom, resources, main class, controller y security de ejemplo.
+// 3. Proyecto Spring Boot: pom, resources, main class y clases Java por capas.
 const paqueteDir = paquete.replaceAll('.', '/');
 
 escribir(join(destino, 'pom.xml'),
@@ -101,22 +113,19 @@ escribir(join(destino, 'src/main/resources/db/migration/V1__init_schema.sql'),
   aplicarPlaceholders(readFileSync(join(raiz, 'templates/project/V1__init_schema.sql.template'), 'utf8')));
 
 const dirMain = join(destino, 'src/main/java', paqueteDir);
-escribir(join(dirMain, 'Application.java'),
-  aplicarPlaceholders(readFileSync(join(raiz, 'templates/project/Application.java.template'), 'utf8')));
-escribir(join(dirMain, 'controller/EjemploController.java'),
-  aplicarPlaceholders(readFileSync(join(raiz, 'templates/project/EjemploController.java.template'), 'utf8')));
-escribir(join(dirMain, 'config/SecurityConfig.java'),
-  aplicarPlaceholders(readFileSync(join(raiz, 'templates/project/SecurityConfig.java.template'), 'utf8')));
 
-// 4. Tests Java: van al paquete correspondiente (com.infosystem.farmacia -> com/infosystem/farmacia).
+// Copiar recursivamente todas las plantillas Java (config, controller, service, repository, model, dto, exception)
+copiarDirectorioTemplates(join(raiz, 'templates/project'), dirMain);
+
+// 4. Tests Java: van al paquete correspondiente.
 const dirTest = join(destino, 'src/test/java', paqueteDir);
 for (const archivo of readdirSync(join(raiz, 'templates/java'))) {
-  const nombreClase = archivo.replace('.template', ''); // OpenApiExportTest.java
+  const nombreClase = archivo.replace('.template', '');
   const subcarpeta = nombreClase.includes('OpenApi') ? 'openapi' : 'schema';
   const contenido = aplicarPlaceholders(readFileSync(join(raiz, 'templates/java', archivo), 'utf8'));
   escribir(join(dirTest, subcarpeta, nombreClase), contenido);
 }
 
-console.log(`\nListo. Revisá ${destino}/CONTEXT.md, AGENTS.md y db-contract.json (quedaron con datos de ejemplo).`);
-console.log('Falta a mano: workflows de CI (copiar y editar de otro backend o invocar los workflow_call de este repo)');
-console.log('y borrar EjemploController/V1__init_schema.sql cuando definas el esquema real.');
+console.log(`\n✨ Backend '${servicio}' creado exitosamente en ${destino}.`);
+console.log(`📌 Revisá ${destino}/AGENTS.md, CONTEXT.md y db-contract.json.`);
+console.log(`💡 Para agregar nuevos módulos ejecuta: npm run scaffold:module -- --name TuModulo`);

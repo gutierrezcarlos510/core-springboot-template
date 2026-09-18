@@ -1,0 +1,125 @@
+package {{PACKAGE}}.repository;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+import {{PACKAGE}}.model.Ejemplo;
+
+/**
+ * Repositorio de datos para Ejemplo utilizando Spring JdbcClient.
+ * Encapsula todas las consultas SQL y el mapeo de registros ResultSet a objetos de dominio.
+ */
+@Repository
+public class EjemploRepository {
+
+    private final JdbcClient jdbcClient;
+
+    public EjemploRepository(JdbcClient jdbcClient) {
+        this.jdbcClient = jdbcClient;
+    }
+
+    private Ejemplo mapRow(ResultSet rs, int rowNum) throws SQLException {
+        return new Ejemplo(
+            UUID.fromString(rs.getString("id")),
+            rs.getString("nombre"),
+            rs.getString("descripcion"),
+            rs.getString("estado"),
+            rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant() : null,
+            rs.getTimestamp("updated_at") != null ? rs.getTimestamp("updated_at").toInstant() : null
+        );
+    }
+
+    public List<Ejemplo> findAll() {
+        String sql = """
+            SELECT id, nombre, descripcion, estado, created_at, updated_at
+            FROM ejemplo
+            ORDER BY created_at DESC
+            """;
+        return jdbcClient.sql(sql)
+            .query(this::mapRow)
+            .list();
+    }
+
+    public List<Ejemplo> findByEstado(String estado) {
+        String sql = """
+            SELECT id, nombre, descripcion, estado, created_at, updated_at
+            FROM ejemplo
+            WHERE estado = :estado
+            ORDER BY nombre ASC
+            """;
+        return jdbcClient.sql(sql)
+            .param("estado", estado)
+            .query(this::mapRow)
+            .list();
+    }
+
+    public Optional<Ejemplo> findById(UUID id) {
+        String sql = """
+            SELECT id, nombre, descripcion, estado, created_at, updated_at
+            FROM ejemplo
+            WHERE id = :id
+            """;
+        return jdbcClient.sql(sql)
+            .param("id", id)
+            .query(this::mapRow)
+            .optional();
+    }
+
+    public Ejemplo save(Ejemplo ejemplo) {
+        String sql = """
+            INSERT INTO ejemplo (id, nombre, descripcion, estado, created_at, updated_at)
+            VALUES (:id, :nombre, :descripcion, :estado, :createdAt, :updatedAt)
+            """;
+        jdbcClient.sql(sql)
+            .param("id", ejemplo.id())
+            .param("nombre", ejemplo.nombre())
+            .param("descripcion", ejemplo.descripcion())
+            .param("estado", ejemplo.estado())
+            .param("createdAt", java.sql.Timestamp.from(ejemplo.createdAt()))
+            .param("updatedAt", java.sql.Timestamp.from(ejemplo.updatedAt()))
+            .update();
+        return ejemplo;
+    }
+
+    public boolean update(Ejemplo ejemplo) {
+        String sql = """
+            UPDATE ejemplo
+            SET nombre = :nombre,
+                descripcion = :descripcion,
+                estado = :estado,
+                updated_at = :updatedAt
+            WHERE id = :id
+            """;
+        int filasAfectadas = jdbcClient.sql(sql)
+            .param("id", ejemplo.id())
+            .param("nombre", ejemplo.nombre())
+            .param("descripcion", ejemplo.descripcion())
+            .param("estado", ejemplo.estado())
+            .param("updatedAt", java.sql.Timestamp.from(ejemplo.updatedAt()))
+            .update();
+        return filasAfectadas > 0;
+    }
+
+    public boolean deleteById(UUID id) {
+        String sql = "DELETE FROM ejemplo WHERE id = :id";
+        return jdbcClient.sql(sql)
+            .param("id", id)
+            .update() > 0;
+    }
+
+    public boolean existsByNombre(String nombre) {
+        String sql = "SELECT COUNT(*) FROM ejemplo WHERE LOWER(nombre) = LOWER(:nombre)";
+        Integer count = jdbcClient.sql(sql)
+            .param("nombre", nombre)
+            .query(Integer.class)
+            .single();
+        return count != null && count > 0;
+    }
+}

@@ -1,0 +1,48 @@
+# AGENTS.md — Contexto y Guía de Desarrollo: {{SERVICIO}}
+
+Instrucciones y arquitectura de referencia para asistentes de IA trabajando en el servicio **{{SERVICIO}}**.
+
+## 1. Arquitectura por Capas
+
+Este servicio sigue una arquitectura limpia en 4 capas principales:
+
+1. **Controller (`{{PACKAGE}}.controller`)**:
+   - Expone endpoints RESTful.
+   - Valida solicitudes usando `@Valid` y anotaciones Jakarta Validation.
+   - Retorna respuestas normalizadas `ApiResponse<T>`.
+   - Documenta los endpoints con anotaciones OpenAPI (`@Operation`, `@Tag`, `@Schema`).
+2. **Service (`{{PACKAGE}}.service`)**:
+   - Implementa la lógica de negocio y reglas transaccionales (`@Transactional`).
+   - Lanza excepciones de dominio (`ResourceNotFoundException`, `BusinessException`).
+   - Mapea modelos de dominio a DTOs de respuesta.
+3. **Repository (`{{PACKAGE}}.repository`)**:
+   - Accede a la base de datos usando `org.springframework.jdbc.core.simple.JdbcClient`.
+   - Mapea filas con `RowMapper` a objetos de dominio.
+   - Mantiene SQL explícito en bloques multilínea `"""..."""`.
+4. **Model (`{{PACKAGE}}.model`)**:
+   - Contiene los modelos de dominio inmutables (Java Records), DTOs de entrada (`*Request`), DTOs de salida (`*Response`) y respuestas estandarizadas (`ApiResponse<T>`). No se utiliza carpeta `dto` separada.
+
+---
+
+## 2. Comandos Principales
+
+| Tarea | Comando |
+|---|---|
+| Generar nuevo módulo CRUD | `node scripts/scaffold-module.mjs --name Producto --table productos` |
+| Actualizar contrato de endpoints | `node scripts/export-endpoints.mjs --service {{SERVICIO}}` |
+| Actualizar especificación OpenAPI | `mvn test -Dtest=OpenApiExportTest` |
+| Exportar esquema de BD | `node scripts/export-db-schema.mjs --service {{SERVICIO}}` |
+| Sincronizar contratos de Core | `node scripts/sync-contracts.mjs` |
+
+---
+
+## 3. Manejo de Excepciones y Respuestas REST
+
+- Todas las respuestas REST exitosas utilizan `ApiResponse.ok(data)` o `ApiResponse.created(data)`.
+- El manejador de excepciones `@RestControllerAdvice` (`GlobalExceptionHandler`) captura automáticamente excepciones de validación, base de datos y negocio, retornando códigos HTTP y esquemas estructurados de error.
+
+---
+
+## 4. Migraciones de Base de Datos (Flyway)
+- Toda modificación de esquema vive en `src/main/resources/db/migration/V{N}__{descripcion}.sql`.
+- **Requisito obligatorio:** Incluir `COMMENT ON TABLE` y `COMMENT ON COLUMN` para que el extractor de documentación auto-genere `docs/database/{{service}}-schema.md`.

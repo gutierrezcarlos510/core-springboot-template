@@ -1,0 +1,30 @@
+package {{PACKAGE}}.config;
+
+/*
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
+
+import com.infosystem.core.client.CoreUsuarioClient;
+
+/**
+ * Configuración para habilitar la comunicación HTTP con core-backend vía core-api-client.
+ *
+ * Para activar la integración con core-backend:
+ * 1. Descomentar el repositorio github y la dependencia `com.infosystem:core-api-client` en `pom.xml`.
+ * 2. Descomentar el bloque de código de esta clase.
+ * 3. Definir la variable de entorno CORE_BACKEND_URL en `.env` o `application.yml`.
+ */
+/*
+@Configuration
+public class CoreClientConfig {
+
+    @Bean
+    public CoreUsuarioClient coreUsuarioClient(
+            RestClient.Builder restClientBuilder,
+            @Value("${core.backend.url:http://localhost:8080}") String coreBackendUrl) {
+        return new CoreUsuarioClient(restClientBuilder.baseUrl(coreBackendUrl).build());
+    }
+}
+*/

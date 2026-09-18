@@ -1,0 +1,30 @@
+package {{PACKAGE}}.model;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+/**
+ * DTO de respuesta para representar la entidad Ejemplo enviada al cliente REST.
+ */
+@Schema(description = "Respuesta con los datos de la entidad Ejemplo")
+public record EjemploResponse(
+    @Schema(description = "Identificador único UUID", example = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
+    UUID id,
+
+    @Schema(description = "Nombre descriptivo", example = "Ejemplo de prueba")
+    String nombre,
+
+    @Schema(description = "Descripción del elemento", example = "Descripción de referencia para demostración")
+    String descripcion,
+
+    @Schema(description = "Estado actual", example = "ACTIVO")
+    String estado,
+
+    @Schema(description = "Fecha de creación")
+    Instant createdAt,
+
+    @Schema(description = "Fecha de última actualización")
+    Instant updatedAt
+) {}

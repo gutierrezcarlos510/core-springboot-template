@@ -1,0 +1,59 @@
+package {{PACKAGE}}.model;
+
+import java.time.Instant;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+/**
+ * Wrapper estándar para todas las respuestas de la API REST.
+ * Garantiza un formato uniforme de respuesta tanto para éxito como para errores.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Respuesta estándar de la API")
+public record ApiResponse<T>(
+    @Schema(description = "Indica si la operación fue exitosa", example = "true")
+    boolean success,
+
+    @Schema(description = "Mensaje informativo sobre el resultado", example = "Operación realizada con éxito")
+    String message,
+
+    @Schema(description = "Datos devueltos por la operación")
+    T data,
+
+    @Schema(description = "Fecha y hora en que se procesó la respuesta")
+    Instant timestamp,
+
+    @Schema(description = "Detalle del error cuando success es false")
+    ErrorDetail error
+) {
+    public record ErrorDetail(
+        @Schema(description = "Código identificador del error", example = "RESOURCE_NOT_FOUND")
+        String code,
+
+        @Schema(description = "Lista de detalles o violaciones de validación")
+        List<String> details
+    ) {}
+
+    public static <T> ApiResponse<T> ok(T data, String message) {
+        return new ApiResponse<>(true, message, data, Instant.now(), null);
+    }
+
+    public static <T> ApiResponse<T> ok(T data) {
+        return ok(data, "Operación realizada con éxito");
+    }
+
+    public static <T> ApiResponse<T> created(T data, String message) {
+        return new ApiResponse<>(true, message, data, Instant.now(), null);
+    }
+
+    public static <T> ApiResponse<T> error(String message, String errorCode, List<String> details) {
+        return new ApiResponse<>(false, message, null, Instant.now(), new ErrorDetail(errorCode, details));
+    }
+
+    public static <T> ApiResponse<T> error(String message, String errorCode) {
+        return error(message, errorCode, List.of(message));
+    }
+}
