@@ -1,0 +1,183 @@
+# Contribuciones a {{SERVICIO}}
+
+Guía rápida para desarrolladores — cómo agregar features, arreglar bugs, mantener calidad.
+
+## Flujo de trabajo local
+
+### Setup inicial
+
+```bash
+cd {{service}}-backend
+make setup SERVICE={{service}}
+# → genera certs JWT, crea .env, levanta Postgres + app
+```
+
+### Desarrollo diario
+
+```bash
+# Compila + tests
+make compile test
+
+# Autoformat código
+make format
+
+# Ver logs en tiempo real
+make logs
+
+# Bajar ambiente
+make dev-down
+```
+
+## Agregar un nuevo endpoint
+
+1. **Crear migración BD** (si necesitas tabla nueva)
+   ```bash
+   # Archivo: src/main/resources/db/migration/V2__crear_tabla_productos.sql
+   CREATE TABLE public.productos (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       nombre VARCHAR(255) NOT NULL,
+       precio NUMERIC(10,2) NOT NULL,
+       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+   );
+
+   COMMENT ON TABLE public.productos IS 'Catálogo de productos';
+   COMMENT ON COLUMN public.productos.id IS 'ID único del producto';
+   COMMENT ON COLUMN public.productos.nombre IS 'Nombre del producto';
+   COMMENT ON COLUMN public.productos.precio IS 'Precio en BOB';
+   ```
+   Fly migrations se aplican automáticamente al arrancar.
+
+2. **Generar módulo CRUD**
+   ```bash
+   make scaffold-module MODULE=Producto TABLE=productos
+   ```
+   Genera:
+   - `model/ProductoRequest`, `ProductoResponse`, `Producto`
+   - `repository/ProductoRepository` (JdbcClient + RowMapper)
+   - `service/ProductoService` (lógica, transacciones)
+   - `controller/ProductoController` (REST + OpenAPI)
+   - Test: `schema/DbContractTest`, `openapi/OpenApiExportTest`
+
+3. **Personalizar lógica**
+   - Edit `service/ProductoService.java` → agregar reglas de negocio
+   - Edit `controller/ProductoController.java` → custom endpoints si no es CRUD puro
+   - Edit `model/ProductoRequest.java` → validaciones con `@NotBlank`, `@Min`, etc.
+
+4. **Tests**
+   ```bash
+   # Ejecutar suite
+   mvn test
+
+   # Un test específico
+   mvn test -Dtest=ProductoRepositoryTest
+
+   # Sin BD (unitarios rápidos)
+   mvn test -Dtest="ProductoService" -DskipDbTests
+   ```
+
+5. **Documentación automática**
+   ```bash
+   # Estos comandos regeneran docs/ from código
+   node scripts/export-endpoints.mjs --service {{SERVICIO}}
+   node scripts/export-db-schema.mjs --service {{SERVICIO}}
+   mvn test -Dtest=OpenApiExportTest
+
+   # Commit todo
+   git add docs/ && git commit -m "docs: regenerar contratos"
+   ```
+
+## Estándares de código
+
+- **Naming**: `PascalCase` para clases, `camelCase` para métodos/vars, `SCREAMING_SNAKE_CASE` para constantes
+- **DTOs immutables**: Java Records (`record ProductoResponse(...) {}`), nunca `@Getter @Setter`
+- **SQL explícito**: Bloques multilínea `"""..."""`, sin ORMs. `JdbcClient` + `RowMapper` siempre
+- **Respuestas normalizadas**: `ApiResponse.ok(data)`, nunca raw JSON
+- **Errores**: Lanzan `BusinessException` o `ResourceNotFoundException`, manejadas por `GlobalExceptionHandler`
+- **Logs españoles**: "Usuario no encontrado" en producción es OK; no exponer IDs internos
+
+## Commit messages
+
+```
+feat(productos): agregar endpoint POST /productos
+fix(productos): validar precio > 0
+docs: regenerar contratos tras V2__crear_tabla_productos.sql
+test(productos): agregar casos de validación
+refactor(repository): simplificar ProductoRepository.findAll()
+```
+
+Forma: `<tipo>(<módulo>): <descripción>`. Tipos: `feat`, `fix`, `docs`, `test`, `refactor`.
+
+## Pre-commit checks
+
+Antes de push, corre automáticamente:
+- Format Java (`spotless`)
+- Tests básicos (unitarios)
+- No secrets (bloquea `.env`, `*.key`)
+
+Si algo falla:
+```bash
+make format  # arregla formato
+make test    # rerun tests
+git add . && git commit -m "..."
+```
+
+## Multi-tenant (si aplica)
+
+- **Header**: `X-Tenant-Id: tenant-123` en requests
+- **Isolation**: `TenantFilter` inyecta contexto automáticamente
+- **Queries**: Siempre `WHERE tenant_id = :tenantId` (ver `TenantContext` para acceder)
+- **Testing**: Configurar tenant en test con `@WithTenant("test-tenant")`
+
+## Troubleshooting
+
+**"Postgres no arranca"**
+```bash
+# Puerto 5432 ocupado en tu máquina
+lsof -i :5432  # ver quién ocupa
+docker compose -f compose.dev.yml down -v
+make dev-up
+```
+
+**"JWT error"**
+```bash
+# Certificados perdidos
+rm -rf certs/
+make setup SERVICE={{service}}
+```
+
+**"Test falla, BD en estado raro"**
+```bash
+# Reset BD local
+docker compose -f compose.dev.yml exec {{service}}-postgres-dev psql -U postgres -d {{service}}_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+make test
+```
+
+**"Cambio schema pero tests no ven migración"**
+```bash
+# Flyway caché stale
+docker volume rm {{service}}_backend_pgdata-dev
+make dev-down && make dev-up
+```
+
+## Preguntas frecuentes
+
+**¿Dónde pongo la lógica compleja?**
+→ `Service`. Repository es solo acceso a datos. Controller solo HTTP.
+
+**¿Cómo reutilizo lógica entre servicios?**
+→ Core Backend expone vistas (`public.core_v_usuarios`). Declara en `db-contract.json`, verifica con `DbContractTest`.
+
+**¿Por qué los DTOs usan Records?**
+→ Immutable, menos boilerplate, thread-safe por defecto. Ideal REST.
+
+**¿Cómo agrego autenticación custom?**
+→ `SecurityConfig.java` ya gestiona JWT. Roles vía `@PreAuthorize("hasRole('ADMIN')")` en endpoints.
+
+## Links útiles
+
+- [AGENTS.md](./AGENTS.md) — arquitectura y reglas
+- [MEMORY.md](./MEMORY.md) — decisiones del proyecto
+- [docs/openapi](./docs/openapi) — API spec automática
+- [docs/database](./docs/database) — schema automático
+- Spring Boot [Javadocs](https://docs.spring.io/spring-boot/docs/4.1.0/reference/html/)

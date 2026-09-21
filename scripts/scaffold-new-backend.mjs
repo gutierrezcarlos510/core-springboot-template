@@ -116,8 +116,17 @@ escribir(join(destino, 'AGENTS.md'), agentsGuide);
 const memoria = aplicarPlaceholders(readFileSync(join(raiz, 'templates/docs/MEMORY.md.template'), 'utf8'));
 escribir(join(destino, 'MEMORY.md'), memoria);
 
+const contribuyendo = aplicarPlaceholders(readFileSync(join(raiz, 'templates/project/CONTRIBUTING.md.template'), 'utf8'));
+escribir(join(destino, 'CONTRIBUTING.md'), contribuyendo);
+
 escribir(join(destino, '.env.example'),
   aplicarPlaceholders(readFileSync(join(raiz, 'templates/project/.env.example.template'), 'utf8')));
+
+// Copiar Makefile y scripts de setup
+const makefile = readFileSync(join(raiz, 'Makefile'), 'utf8');
+escribir(join(destino, 'Makefile'), makefile);
+
+copiarPlano(join(raiz, 'scripts/.githooks'), join(destino, '.githooks'));
 
 // Docker: arranque local sin instalar Postgres a mano.
 escribir(join(destino, 'Dockerfile'),

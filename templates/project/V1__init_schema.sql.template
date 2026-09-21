@@ -1,28 +1,76 @@
--- Esquema inicial de {{SERVICIO}}. Reemplazar por las tablas reales del dominio.
+-- Esquema inicial de {{SERVICIO}}.
 --
--- Reglas:
--- 1. Nunca editar una migración ya aplicada en un entorno compartido; corregir con una nueva.
--- 2. COMMENT ON TABLE / COMMENT ON COLUMN en toda tabla o columna nueva: alimenta
---    docs/database/{{service}}-schema.md generado.
--- 3. Si esta tabla la consulta otro backend con SQL directo, exponerla mediante vista
---    de contrato pública (core_v_*).
+-- STANDAR DE MIGRACIONES:
+-- 1. Nunca editar V1, V2, etc ya aplicadas en compartido. Corregir con nuevo Vn.
+-- 2. COMMENT ON TABLE/COLUMN OBLIGATORIO: alimenta docs/database/{{service}}-schema.md automático.
+-- 3. UUIDs: DEFAULT gen_random_uuid(), no secuencias.
+-- 4. Timestamps: TIMESTAMPTZ (con zona), DEFAULT CURRENT_TIMESTAMP. Usar triggers para updated_at.
+-- 5. PK siempre UUID; FKs en columnas separadas (user_id, not_user_uuid).
+-- 6. Índices: (1) PK automático, (2) FK implícito, (3) busca frecuentes explícita.
+-- 7. Vistas públicas: si otro backend lo consulta directo (no safe), crear public.{{service}}_v_* vista.
+-- 8. Constraints: NOT NULL, UNIQUE, CHECK para reglas. Errores claros en app layer.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Trigger para updated_at automático en todas las tablas
+CREATE OR REPLACE FUNCTION actualizar_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Tabla de ejemplo (borrar en proyecto real y agregar tablas del dominio)
 CREATE TABLE ejemplo (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nombre      VARCHAR(150) NOT NULL,
     descripcion VARCHAR(255),
-    estado      VARCHAR(20) DEFAULT 'ACTIVO' NOT NULL,
-    created_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+    estado      VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT ej_estado_valido CHECK (estado IN ('ACTIVO', 'INACTIVO')),
+    CONSTRAINT ej_nombre_no_vacio CHECK (nombre <> '')
 );
 
-COMMENT ON TABLE ejemplo IS 'Tabla de ejemplo del template demostrando el estándar por capas y comentarios de BD. Borrar al iniciar el proyecto real.';
-COMMENT ON COLUMN ejemplo.id IS 'Identificador único UUID generado por la base de datos.';
-COMMENT ON COLUMN ejemplo.nombre IS 'Nombre descriptivo del elemento de ejemplo.';
-COMMENT ON COLUMN ejemplo.descripcion IS 'Descripción detallada opcional del elemento.';
-COMMENT ON COLUMN ejemplo.estado IS 'Estado operativo del elemento (ACTIVO, INACTIVO).';
-COMMENT ON COLUMN ejemplo.created_at IS 'Fecha y hora de creación del registro en el sistema.';
-COMMENT ON COLUMN ejemplo.updated_at IS 'Fecha y hora de la última actualización del registro.';
+-- Índices para búsquedas rápidas
+CREATE INDEX idx_ejemplo_estado ON ejemplo(estado) WHERE estado = 'ACTIVO';
+CREATE INDEX idx_ejemplo_nombre ON ejemplo(nombre);
+
+-- Trigger para updated_at
+CREATE TRIGGER trig_ejemplo_updated_at
+BEFORE UPDATE ON ejemplo
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_updated_at();
+
+-- Comentarios (extraídos automáticamente a docs/database/{{service}}-schema.md)
+COMMENT ON TABLE ejemplo IS 'Tabla de ejemplo del template — borrar y reemplazar con tablas reales del dominio.';
+COMMENT ON COLUMN ejemplo.id IS 'Identificador único UUID, generado por la base de datos.';
+COMMENT ON COLUMN ejemplo.nombre IS 'Nombre descriptivo del elemento (requerido).';
+COMMENT ON COLUMN ejemplo.descripcion IS 'Descripción detallada opcional.';
+COMMENT ON COLUMN ejemplo.estado IS 'Estado operativo: ACTIVO (default) o INACTIVO.';
+COMMENT ON COLUMN ejemplo.created_at IS 'Timestamp de creación. Establecido automáticamente.';
+COMMENT ON COLUMN ejemplo.updated_at IS 'Timestamp de última actualización. Actualizado automáticamente por trigger.';
+
+-- EJEMPLO: Cómo agregar una tabla real con FK
+-- (descomenta y adapta para tu primer módulo)
+--
+-- CREATE TABLE usuarios (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     email VARCHAR(255) NOT NULL UNIQUE,
+--     rol VARCHAR(50) NOT NULL DEFAULT 'USER',
+--     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--
+--     CONSTRAINT usr_email_valido CHECK (email ~ '^[^@]+@[^@]+\.[^@]+$'),
+--     CONSTRAINT usr_rol_valido CHECK (rol IN ('USER', 'ADMIN', 'MODERATOR'))
+-- );
+--
+-- CREATE INDEX idx_usuarios_email ON usuarios(email);
+-- CREATE TRIGGER trig_usuarios_updated_at BEFORE UPDATE ON usuarios FOR EACH ROW EXECUTE FUNCTION actualizar_updated_at();
+--
+-- COMMENT ON TABLE usuarios IS 'Usuarios del sistema {{SERVICIO}}.';
+-- COMMENT ON COLUMN usuarios.email IS 'Email único del usuario.';
+-- COMMENT ON COLUMN usuarios.rol IS 'Rol en el sistema.';
 

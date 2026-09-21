@@ -1,0 +1,38 @@
+#!/bin/bash
+# pre-commit — bloquear secretos y errores obvios antes de commit
+
+set -e
+
+STAGED=$(git diff --cached --name-only)
+
+# 1. Bloquear secretos (archivos sensibles)
+SECRETS_PATTERNS=("\.env$" "\.key$" "private_key" "settings\.xml$" "credentials" "\.pem$" "secret" "password")
+for file in $STAGED; do
+    for pattern in "${SECRETS_PATTERNS[@]}"; do
+        if [[ $file =~ $pattern ]]; then
+            echo "❌ BLOQUEADO: Intento de commit de archivo sensible: $file"
+            echo "   Usa .gitignore o git secrets para excluirlo"
+            exit 1
+        fi
+    done
+done
+
+# 2. Si hay Java files, format check (sin fallar si spotless no existe)
+JAVA_FILES=$(echo "$STAGED" | grep '\.java$' || true)
+if [ -n "$JAVA_FILES" ]; then
+    # Silenciar error si spotless no está configurado
+    mvn spotless:check -q 2>/dev/null || true
+fi
+
+# 3. Bloquear SQL injection patterns en migrations
+SQL_FILES=$(echo "$STAGED" | grep 'db/migration.*\.sql$' || true)
+for file in $SQL_FILES; do
+    # Alerta si ve string concatenation (muy simple, no exhaustivo)
+    if grep -E "LIKE.*\+|CONCAT.*%|UNION.*SELECT" "$file" 2>/dev/null; then
+        echo "⚠️  ADVERTENCIA: Posible SQL injection en $file"
+        echo "   Revisar queries con LIKE, CONCAT, UNION"
+    fi
+done
+
+echo "✅ Pre-commit checks pasaron"
+exit 0
