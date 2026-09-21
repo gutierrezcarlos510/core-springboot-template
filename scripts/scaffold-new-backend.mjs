@@ -123,7 +123,6 @@ const entrypointContent = `# Reglas de Agente de IA para {{SERVICIO}}
 Este servicio utiliza las reglas de arquitectura estandarizadas ubicadas en [.agents/AGENTS.md](file://./.agents/AGENTS.md).
 `;
 
-escribir(join(destino, 'AGENTS.md'), aplicarPlaceholders(entrypointContent));
 escribir(join(destino, 'GEMINI.md'), aplicarPlaceholders(entrypointContent));
 escribir(join(destino, 'CLAUDE.md'), aplicarPlaceholders(entrypointContent));
 escribir(join(destino, '.cursorrules'), aplicarPlaceholders(entrypointContent));
