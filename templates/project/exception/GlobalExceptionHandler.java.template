@@ -1,60 +1,86 @@
 package {{PACKAGE}}.exception;
 
-import java.util.List;
+import java.net.URI;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
+import org.slf4j.MDC;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
+import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import {{PACKAGE}}.model.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
- * Manejador global de excepciones para toda la aplicación REST.
- * Captura excepciones de validación, recursos no encontrados, errores de negocio y base de datos,
- * convirtiéndolos en respuestas estandarizadas ApiResponse<T>.
+ * Manejador global de excepciones para la aplicación REST.
+ * Traduce excepciones de dominio, validación y base de datos a ProblemDetail (RFC 7807),
+ * garantizando compatibilidad estándar con Spring Boot 3 y core-backend.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleNotFound(ResourceNotFoundException ex) {
-        return ResponseEntity
-            .status(HttpStatus.NOT_FOUND)
-            .body(ApiResponse.error(ex.getMessage(), "RESOURCE_NOT_FOUND"));
+    public ProblemDetail handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle("Resource Not Found");
+        enrichProblem(problem, "RESOURCE_NOT_FOUND", request, null);
+        return problem;
     }
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBusiness(BusinessException ex) {
-        return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(ApiResponse.error(ex.getMessage(), "BUSINESS_RULE_VIOLATION"));
+    public ProblemDetail handleBusiness(BusinessException ex, HttpServletRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setTitle("Business Rule Violation");
+        enrichProblem(problem, "BUSINESS_RULE_VIOLATION", request, null);
+        return problem;
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
-        List<String> errores = ex.getBindingResult().getFieldErrors().stream()
-            .map(FieldError::getDefaultMessage)
-            .toList();
-        return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(ApiResponse.error("Error de validación en la solicitud", "VALIDATION_FAILED", errores));
+    public ProblemDetail handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+            fieldErrors.put(error.getField(), error.getDefaultMessage())
+        );
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Error de validación en la solicitud");
+        problem.setTitle("Validation Failed");
+        enrichProblem(problem, "VALIDATION_FAILED", request, fieldErrors);
+        return problem;
     }
 
     @ExceptionHandler(DataAccessException.class)
-    public ResponseEntity<ApiResponse<Void>> handleDatabase(DataAccessException ex) {
-        return ResponseEntity
-            .status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(ApiResponse.error("Error de acceso a la base de datos", "DATABASE_ERROR", List.of(ex.getMostSpecificCause().getMessage())));
+    public ProblemDetail handleDatabase(DataAccessException ex, HttpServletRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Error de acceso a la base de datos");
+        problem.setTitle("Database Error");
+        enrichProblem(problem, "DATABASE_ERROR", request, Map.of("detail", ex.getMostSpecificCause().getMessage()));
+        return problem;
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
-        return ResponseEntity
-            .status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(ApiResponse.error("Ocurrió un error inesperado en el servidor", "INTERNAL_SERVER_ERROR", List.of(ex.getMessage())));
+    public ProblemDetail handleGeneral(Exception ex, HttpServletRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado en el servidor");
+        problem.setTitle("Internal Server Error");
+        enrichProblem(problem, "INTERNAL_SERVER_ERROR", request, Map.of("detail", ex.getMessage() != null ? ex.getMessage() : "N/A"));
+        return problem;
+    }
+
+    private void enrichProblem(ProblemDetail problem, String errorCode, HttpServletRequest request, Object errors) {
+        if (request != null) {
+            problem.setInstance(URI.create(request.getRequestURI()));
+        }
+        problem.setProperty("timestamp", Instant.now().toString());
+        problem.setProperty("errorCode", errorCode);
+
+        String correlationId = MDC.get("correlationId");
+        if (correlationId != null) {
+            problem.setProperty("correlationId", correlationId);
+        }
+        if (errors != null) {
+            problem.setProperty("errors", errors);
+        }
     }
 }

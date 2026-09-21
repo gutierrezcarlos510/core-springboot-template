@@ -96,33 +96,34 @@ Toda respuesta de la API (tanto exitosa como con fallas) responde con la estruct
 }
 ```
 
-Estructura de error:
+Estructura de error estándar (`ProblemDetail` RFC 7807):
 
 ```json
 {
-  "success": false,
-  "message": "Error de validación en la solicitud",
-  "data": null,
+  "type": "about:blank",
+  "title": "Validation Failed",
+  "status": 400,
+  "detail": "Error de validación en la solicitud",
+  "instance": "/api/v1/ejemplos",
   "timestamp": "2026-09-17T20:00:00Z",
-  "error": {
-    "code": "VALIDATION_FAILED",
-    "details": [
-      "El nombre es obligatorio",
-      "El estado debe ser ACTIVO o INACTIVO"
-    ]
+  "errorCode": "VALIDATION_FAILED",
+  "correlationId": "c8e88f29-...",
+  "errors": {
+    "nombre": "El nombre es obligatorio",
+    "estado": "El estado debe ser ACTIVO o INACTIVO"
   }
 }
 ```
 
 ### 3.2 Mapeo de Excepciones (`GlobalExceptionHandler`)
 
-| Excepción                         | Código HTTP                 | Código Error (`ApiResponse`) | Razón                                            |
-| --------------------------------- | --------------------------- | ---------------------------- | ------------------------------------------------ |
-| `ResourceNotFoundException`       | `404 NOT FOUND`             | `RESOURCE_NOT_FOUND`         | El UUID o recurso consultado no existe.          |
-| `BusinessException`               | `400 BAD REQUEST`           | `BUSINESS_RULE_VIOLATION`    | Regla de negocio violada (ej: nombre duplicado). |
-| `MethodArgumentNotValidException` | `400 BAD REQUEST`           | `VALIDATION_FAILED`          | Fallaron anotaciones `@Valid` en `@RequestBody`. |
-| `DataAccessException`             | `500 INTERNAL_SERVER_ERROR` | `DATABASE_ERROR`             | Fallo de conexión o restricción SQL.             |
-| `Exception`                       | `500 INTERNAL_SERVER_ERROR` | `INTERNAL_SERVER_ERROR`      | Error no capturado / imprevisto.                 |
+| Excepción                         | Código HTTP                 | Código Error (`errorCode`) | Title / Razón                                    |
+| --------------------------------- | --------------------------- | -------------------------- | ------------------------------------------------ |
+| `ResourceNotFoundException`       | `404 NOT FOUND`             | `RESOURCE_NOT_FOUND`       | Resource Not Found                               |
+| `BusinessException`               | `400 BAD REQUEST`           | `BUSINESS_RULE_VIOLATION`  | Business Rule Violation                          |
+| `MethodArgumentNotValidException` | `400 BAD REQUEST`           | `VALIDATION_FAILED`        | Validation Failed                                |
+| `DataAccessException`             | `500 INTERNAL_SERVER_ERROR` | `DATABASE_ERROR`           | Database Error                                   |
+| `Exception`                       | `500 INTERNAL_SERVER_ERROR` | `INTERNAL_SERVER_ERROR`    | Internal Server Error                            |
 
 ---
 

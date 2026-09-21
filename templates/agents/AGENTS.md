@@ -51,17 +51,20 @@ Todas las respuestas REST deben ser envueltas en `ApiResponse<T>`:
 }
 ```
 
-En caso de error:
+En caso de error, el `GlobalExceptionHandler` mapea la excepción a `ProblemDetail` (estándar RFC 7807 de Spring Boot 3 / core-backend):
 
 ```json
 {
-  "success": false,
-  "message": "Recurso no encontrado",
-  "data": null,
+  "type": "about:blank",
+  "title": "Validation Failed",
+  "status": 400,
+  "detail": "Error de validación en la solicitud",
+  "instance": "/api/v1/ejemplos",
   "timestamp": "2026-09-17T20:00:00Z",
-  "error": {
-    "code": "RESOURCE_NOT_FOUND",
-    "details": ["El elemento con ID 123 no existe"]
+  "errorCode": "VALIDATION_FAILED",
+  "correlationId": "c8e88f29-...",
+  "errors": {
+    "nombre": "El nombre es obligatorio"
   }
 }
 ```
