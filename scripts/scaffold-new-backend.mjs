@@ -88,9 +88,13 @@ function copiarPlano(srcDir, targetDir) {
   escanear(srcDir);
 }
 
-// 0. Configuración de agentes de IA (.claude/): subagentes y skills genéricos, sin placeholders.
-copiarPlano(join(raiz, 'templates/claude/agents'), join(destino, '.claude/agents'));
-copiarPlano(join(raiz, 'templates/claude/skills'), join(destino, '.claude/skills'));
+// 0. Configuración de agentes de IA (.agents/): reglas y skills universales sin vendor lock-in.
+if (existsSync(join(raiz, 'templates/agents'))) {
+  copiarPlano(join(raiz, 'templates/agents/rules'), join(destino, '.agents/rules'));
+  copiarPlano(join(raiz, 'templates/agents/skills'), join(destino, '.agents/skills'));
+} else if (existsSync(join(raiz, '.agents'))) {
+  copiarPlano(join(raiz, '.agents'), join(destino, '.agents'));
+}
 
 // 1. Scripts genéricos: se copian tal cual (sin placeholders).
 mkdirSync(join(destino, 'scripts'), { recursive: true });
@@ -112,6 +116,20 @@ const agentsGuide = existsSync(join(raiz, 'templates/docs/AGENTS.md.template'))
 
 escribir(join(destino, 'CONTEXT.md'), contexto);
 escribir(join(destino, 'AGENTS.md'), agentsGuide);
+escribir(join(destino, '.agents/AGENTS.md'), agentsGuide);
+
+// Puntos de entrada para compatibilidad multi-agente
+const entrypointContent = `# Reglas de Agente de IA para {{SERVICIO}}
+
+Este servicio utiliza las reglas de arquitectura estandarizadas ubicadas en [.agents/AGENTS.md](file://./.agents/AGENTS.md).
+`;
+
+escribir(join(destino, 'GEMINI.md'), aplicarPlaceholders(entrypointContent));
+escribir(join(destino, 'CLAUDE.md'), aplicarPlaceholders(entrypointContent));
+escribir(join(destino, '.cursorrules'), aplicarPlaceholders(entrypointContent));
+escribir(join(destino, '.windsurfrules'), aplicarPlaceholders(entrypointContent));
+escribir(join(destino, '.clinerules'), aplicarPlaceholders(entrypointContent));
+escribir(join(destino, '.github/copilot-instructions.md'), aplicarPlaceholders(entrypointContent));
 
 const memoria = aplicarPlaceholders(readFileSync(join(raiz, 'templates/docs/MEMORY.md.template'), 'utf8'));
 escribir(join(destino, 'MEMORY.md'), memoria);

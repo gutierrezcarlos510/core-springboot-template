@@ -1,0 +1,9 @@
+# Antigravity & Gemini Rules
+
+Este proyecto utiliza las reglas estandarizadas de agentes ubicadas en [.agents/AGENTS.md](file://./.agents/AGENTS.md).
+
+Por favor, lee y cumple estrictamente las siguientes guías principales:
+- **Arquitectura por capas**: `controller` (OpenAPI, DTOs, @Valid), `service` (Lógica, @Transactional), `repository` (JdbcClient, RowMapper), `model` (Records, ApiResponse<T>).
+- **Persistencia**: Usar `JdbcClient` con SQL explícito en bloques multilínea.
+- **Respuestas API**: Envolver todas las respuestas REST en `ApiResponse<T>`.
+- **Migraciones Flyway**: Incluir siempre `COMMENT ON TABLE` y `COMMENT ON COLUMN` en `src/main/resources/db/migration/`.
