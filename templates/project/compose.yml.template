@@ -1,0 +1,55 @@
+services:
+  {{service}}-backend:
+    image: ${COMPOSE_PROJECT_NAME:-{{service}}_backend}:${APP_VERSION:-latest}
+    container_name: ${COMPOSE_PROJECT_NAME:-{{service}}_backend}
+    build:
+      context: .
+      args:
+        DOCKER_USER: ${DOCKER_USER:-ubuntu}
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=${COMPOSE_PROJECT_NAME:-{{service}}_backend}_pg
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-{{service}}_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - JWT_PRIVATE_KEY_PATH=file:/app/certs/private_key.pem
+      - JWT_PUBLIC_KEY_PATH=file:/app/certs/public_key.pem
+      - APP_CORS_ALLOWED_ORIGIN_PATTERNS=${APP_CORS_ALLOWED_ORIGIN_PATTERNS:-http://localhost:*}
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    volumes:
+      - ./certs:/app/certs:ro
+    depends_on:
+      {{service}}-postgres:
+        condition: service_healthy
+
+  {{service}}-postgres:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-{{service}}_backend}_pg
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${DB_NAME:-{{service}}_db}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+    ports:
+      - "${DB_PORT_EXTERNAL:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-{{service}}_db}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+    name: ${COMPOSE_PROJECT_NAME:-{{service}}_backend}_pgdata

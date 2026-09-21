@@ -73,6 +73,25 @@ function copiarDirectorioTemplates(srcDir, targetJavaDir) {
   escanear(srcDir);
 }
 
+function copiarPlano(srcDir, targetDir) {
+  function escanear(dirActual) {
+    for (const entrada of readdirSync(dirActual)) {
+      const fullPath = join(dirActual, entrada);
+      const relPath = relative(srcDir, fullPath);
+      if (statSync(fullPath).isDirectory()) {
+        escanear(fullPath);
+      } else {
+        escribir(join(targetDir, relPath), readFileSync(fullPath));
+      }
+    }
+  }
+  escanear(srcDir);
+}
+
+// 0. Configuración de agentes de IA (.claude/): subagentes y skills genéricos, sin placeholders.
+copiarPlano(join(raiz, 'templates/claude/agents'), join(destino, '.claude/agents'));
+copiarPlano(join(raiz, 'templates/claude/skills'), join(destino, '.claude/skills'));
+
 // 1. Scripts genéricos: se copian tal cual (sin placeholders).
 mkdirSync(join(destino, 'scripts'), { recursive: true });
 for (const archivo of readdirSync(join(raiz, 'scripts'))) {
@@ -94,13 +113,19 @@ const agentsGuide = existsSync(join(raiz, 'templates/docs/AGENTS.md.template'))
 escribir(join(destino, 'CONTEXT.md'), contexto);
 escribir(join(destino, 'AGENTS.md'), agentsGuide);
 
-if (existsSync(join(raiz, '.agents/AGENTS.md'))) {
-  escribir(join(destino, '.agents/AGENTS.md'),
-    aplicarPlaceholders(readFileSync(join(raiz, '.agents/AGENTS.md'), 'utf8')));
-}
+const memoria = aplicarPlaceholders(readFileSync(join(raiz, 'templates/docs/MEMORY.md.template'), 'utf8'));
+escribir(join(destino, 'MEMORY.md'), memoria);
 
 escribir(join(destino, '.env.example'),
   aplicarPlaceholders(readFileSync(join(raiz, 'templates/project/.env.example.template'), 'utf8')));
+
+// Docker: arranque local sin instalar Postgres a mano.
+escribir(join(destino, 'Dockerfile'),
+  aplicarPlaceholders(readFileSync(join(raiz, 'templates/project/Dockerfile.template'), 'utf8')));
+escribir(join(destino, 'compose.yml'),
+  aplicarPlaceholders(readFileSync(join(raiz, 'templates/project/compose.yml.template'), 'utf8')));
+escribir(join(destino, 'compose.dev.yml'),
+  aplicarPlaceholders(readFileSync(join(raiz, 'templates/project/compose.dev.yml.template'), 'utf8')));
 
 // 3. Proyecto Spring Boot: pom, resources, main class y clases Java por capas.
 const paqueteDir = paquete.replaceAll('.', '/');

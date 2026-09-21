@@ -5,6 +5,13 @@ name: Contrato con core (reutilizable)
 # Requiere contracts.sources.json + scripts/sync-contracts.mjs instalados (ver templates/)
 # y db-contract.json si declara vistas. Hace checkout de core-backend-2026 aparte y
 # verifica que docs/external/core/ esté al día.
+#
+# NOTA (2026-09-21): pin explícito a `ref: develop` — sin esto se clona la rama por
+# defecto del repo (main), que no tiene el contrato real. Mismo bug que se encontró y
+# arregló hoy en los workflows inline de core-backend (commits f9b83c4/dda54a7/5dcda9e).
+# Cuando gutierrezcarlos510/infosystem-dev-tools exista y publique este workflow,
+# migrar core-backend/restobar-backend-2026/admin_eventos_backend de sus copias inline
+# divergentes a `uses:` de este archivo.
 
 on:
   workflow_call:
@@ -26,6 +33,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: gutierrezcarlos510/core-backend-2026
+          ref: develop
           token: ${{ secrets.core-repo-token }}
           path: external/core-backend
 

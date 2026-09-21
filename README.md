@@ -27,10 +27,11 @@ Esta plantilla resuelve los problemas centrales del desarrollo de microservicios
 
 ### 1. Crear un backend nuevo completo
 
+Sin dependencias que instalar: los scripts son Node puro (`node:fs`/`node:path`), no requieren `npm install`.
+
 ```bash
 git clone git@github.com:gutierrezcarlos510/core-springboot-template.git
 cd core-springboot-template
-npm install
 
 # Generar nuevo servicio (ejemplo: FARMACIA)
 npm run scaffold -- \
@@ -39,7 +40,9 @@ npm run scaffold -- \
   --out ../farmacia-backend
 
 cd ../farmacia-backend
-git init && mvn compile
+git init
+docker compose -f compose.dev.yml up -d
+mvn spring-boot:run
 ```
 
 Esto entrega un proyecto listo que **compila y arranca inmediatamente**, con:
@@ -48,7 +51,9 @@ Esto entrega un proyecto listo que **compila y arranca inmediatamente**, con:
 - `src/main/resources/application.yml` — Configuración de datasource por variables de entorno.
 - `src/main/resources/db/migration/V1__init_schema.sql` — Migración DDL Flyway con comentarios SQL `COMMENT ON` listos para extracción de documentación.
 - **Estructura por capas completa:** `controller/`, `service/`, `repository/`, `model/`, `exception/`, `config/`.
-- `AGENTS.md` y `.agents/AGENTS.md` — Reglas contextuales para asistentes de IA.
+- `Dockerfile`, `compose.yml` (producción) y `compose.dev.yml` (Postgres local embebido) — arrancá sin instalar Postgres a mano.
+- `AGENTS.md` (reglas de arquitectura) y `MEMORY.md` (bitácora viva de decisiones/lecciones) — configuración lista para asistentes de IA.
+- `.claude/agents/` y `.claude/skills/` — subagentes y skills de Spring Boot/JDBC preinstalados.
 - Tests `OpenApiExportTest`, `DbSchemaExportTest` y `DbContractTest`.
 
 ---

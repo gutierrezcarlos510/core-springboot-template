@@ -1,7 +1,7 @@
 name: Contrato de endpoints (reutilizable)
 
 # Workflow reutilizable: cada backend lo invoca con
-#   uses: gutierrezcarlos510/infosystem-dev-tools/.github/workflows/contrato-endpoints.yml@v1
+#   uses: gutierrezcarlos510/core-springboot-template/.github/workflows/contrato-endpoints.yml@v1
 #   with:
 #     service: RESTOBAR
 # Requiere que el backend tenga scripts/export-endpoints.mjs, scripts/openapi-coverage.mjs
@@ -18,7 +18,7 @@ on:
       java-version:
         required: false
         type: string
-        default: '17'
+        default: "17"
     secrets:
       maven-packages-token:
         required: false

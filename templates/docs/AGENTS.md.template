@@ -41,8 +41,50 @@ Este servicio sigue una arquitectura limpia en 4 capas principales:
 - Todas las respuestas REST exitosas utilizan `ApiResponse.ok(data)` o `ApiResponse.created(data)`.
 - El manejador de excepciones `@RestControllerAdvice` (`GlobalExceptionHandler`) captura automáticamente excepciones de validación, base de datos y negocio, retornando códigos HTTP y esquemas estructurados de error.
 
+Envelope de éxito:
+
+```json
+{
+  "success": true,
+  "message": "Operación realizada con éxito",
+  "data": { ... },
+  "timestamp": "2026-09-17T20:00:00Z",
+  "error": null
+}
+```
+
+Envelope de error:
+
+```json
+{
+  "success": false,
+  "message": "Recurso no encontrado",
+  "data": null,
+  "timestamp": "2026-09-17T20:00:00Z",
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "details": ["El elemento con ID 123 no existe"]
+  }
+}
+```
+
 ---
 
 ## 4. Migraciones de Base de Datos (Flyway)
 - Toda modificación de esquema vive en `src/main/resources/db/migration/V{N}__{descripcion}.sql`.
 - **Requisito obligatorio:** Incluir `COMMENT ON TABLE` y `COMMENT ON COLUMN` para que el extractor de documentación auto-genere `docs/database/{{service}}-schema.md`.
+
+---
+
+## 5. Contrato con Core Backend (`public`)
+- Prohibido consultar directamente las tablas físicas del esquema `public` de `core-backend`.
+- Consumir únicamente las vistas de contrato publicadas: `public.core_v_*`.
+- Declarar las vistas y columnas utilizadas en `db-contract.json`.
+- Verificar el contrato mediante `DbContractTest`.
+
+---
+
+## 6. Memoria y Autocorrección
+- Reglas de arquitectura estables van en **este archivo** (`AGENTS.md`).
+- Decisiones fechadas, gotchas descubiertos y deuda técnica conocida van en `MEMORY.md` — es una bitácora viva, no se edita `AGENTS.md` para eso.
+- Ante una corrección del usuario o un hallazgo relevante durante el trabajo, agregar una entrada en `MEMORY.md` (no acá).

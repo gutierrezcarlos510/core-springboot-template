@@ -1,0 +1,25 @@
+# MEMORY.md — Bitácora viva de {{SERVICIO}}
+
+Este archivo es la memoria de trabajo del proyecto para agentes de IA y humanos. Distinto de
+`AGENTS.md` (reglas de arquitectura estables, rara vez cambian), acá se registran decisiones
+puntuales, hallazgos y deuda técnica a medida que aparecen. Se agrega, no se reescribe la
+historia — cada entrada lleva fecha.
+
+Ante una corrección del usuario o un hallazgo relevante durante el trabajo: agregar una
+entrada acá, no editar `AGENTS.md`.
+
+## Decisiones de Arquitectura
+
+- 2026-01-01: Ejemplo — se decidió usar `JdbcClient` en vez de JPA/Hibernate para todo acceso
+  a datos, siguiendo el patrón de `core-backend`. Ver `AGENTS.md` sección 1.
+
+## Lecciones Aprendidas
+
+- 2026-01-01: Ejemplo — un `git clone`/`actions/checkout` sin `ref:` explícito clona la rama
+  por defecto del repo, no necesariamente `develop`. Pinear siempre la rama en CI que cruza
+  repositorios.
+
+## Deuda Técnica Conocida
+
+- 2026-01-01: Ejemplo — pendiente evaluar migración a los workflows reutilizables de
+  `infosystem-dev-tools` cuando ese repo se publique, en vez de mantener copias inline.
